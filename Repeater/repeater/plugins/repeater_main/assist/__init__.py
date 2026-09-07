@@ -11,7 +11,8 @@ from .assist_func import (
     str_to_bool,
     format_carry_duration,
     parse_delimited_string,
-    escape_string
+    escape_string,
+    text_content_cutter,
 )
 from .persona_info import (
     EnterType,
