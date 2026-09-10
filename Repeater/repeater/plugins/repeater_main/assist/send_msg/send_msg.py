@@ -1605,6 +1605,7 @@ class SendMsg:
     async def send_chat_response(
             self,
             reasoning_content: str | None = None,
+            tools_content: str | None = None,
             content: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1615,6 +1616,7 @@ class SendMsg:
     async def send_chat_response(
             self,
             reasoning_content: str | None = None,
+            tools_content: str | None = None,
             content: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1624,6 +1626,7 @@ class SendMsg:
     async def send_chat_response(
             self,
             reasoning_content: str | None = None,
+            tools_content: str | None = None,
             content: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1633,6 +1636,7 @@ class SendMsg:
         发送聊天响应
 
         :param reasoning_content: 推理内容
+        :param tools_content: 工具内容
         :param content: 文本内容
         :param reply: 是否回复
         :param break_code: 返回码
@@ -1647,6 +1651,15 @@ class SendMsg:
                 asyncio.create_task(
                     self.render_text_to_msg_segment(
                         reasoning_content,
+                    )
+                )
+            )
+
+        if tools_content:
+            tasks.append(
+                asyncio.create_task(
+                    self.render_text_to_msg_segment(
+                        tools_content,
                     )
                 )
             )
