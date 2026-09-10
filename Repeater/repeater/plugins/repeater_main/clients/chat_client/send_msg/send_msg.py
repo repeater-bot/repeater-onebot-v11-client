@@ -4,12 +4,16 @@ from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.internal.matcher.matcher import Matcher
 from typing import NoReturn, Type, Callable
 
-from ....assist import ErrorResponse
-
-from ....assist import PersonaInfo, Response, SendMsg
+from ....assist import (
+    PersonaInfo,
+    Response,
+    SendMsg,
+    ChatTTSAPI,
+    ErrorResponse,
+    text_content_cutter,
+)
 from ..response_body import ChatResponse
 from ...content_role import ContentRole
-from ....assist import ChatTTSAPI
 from ....logger import logger as base_logger
 from ....client_configs import storage_configs
 
@@ -58,6 +62,40 @@ class ChatSendMsg(SendMsg):
         return self._reasoning_content_handler(merged_content)
 
     @property
+    def tools_content(self) -> str | None:
+        return self.get_tools_content(
+            response_max_length = storage_configs.max_tool_response_length
+        )
+
+    def get_tools_content(self, response_max_length: int | None = 100):
+        if self._data is None:
+            return None
+        buffer: list[str] = []
+        for content in self._data.context.context_list:
+            if content.role == ContentRole.ASSISTANT:
+                if content.tool_calls:
+                    for tool_call in content.tool_calls:
+                        sub_buffer: list[str] = []
+                        sub_buffer.append(f"[Call Tool] {tool_call.function.name}({tool_call.id})")
+                        sub_buffer.append("```")
+                        sub_buffer.append(tool_call.function.arguments)
+                        sub_buffer.append("```")
+                        buffer.append("\n".join(sub_buffer))
+            if content.role == ContentRole.TOOL:
+                if content.tool_call_id:
+                    sub_buffer: list[str] = []
+                    sub_buffer.append(f"[Tool Response] {content.tool_call_id}")
+                    sub_buffer.append("```")
+                    if response_max_length is not None:
+                        sub_buffer.append(text_content_cutter(content.content, response_max_length))
+                    else:
+                        sub_buffer.append(content.content)
+                    sub_buffer.append("```")
+                    buffer.append("\n".join(sub_buffer))
+
+        return "\n\n".join(buffer)
+
+    @property
     def content(self) -> str | None:
         if self._data is None:
             return None
@@ -66,10 +104,6 @@ class ChatSendMsg(SendMsg):
             if content.role == ContentRole.ASSISTANT:
                 if content.content and content.content.strip():
                     buffer.append(content.content)
-            if content.role == ContentRole.TOOLS:
-                if content.tool_calls:
-                    for tool_call in content.tool_calls:
-                        buffer.append(f"[Call Tool] {tool_call.function.name}")
         merged_content = "\n\n---\n\n".join(buffer)
         if self._strip:
             merged_content = merged_content.strip()
@@ -125,29 +159,92 @@ class ChatSendMsg(SendMsg):
         
         # This line is not necessary
         self.handler_finished()
+
+    @staticmethod
+    async def _content_to_text(msg: str, prefix: str = "", suffix: str = "\n\n---\n\n") -> MessageSegment:
+        if msg:
+            return MessageSegment.text(
+                f"{prefix}{msg}{suffix}"
+            )
+        else:
+            return MessageSegment.text("")
     
-    async def send_text_mode(self, text: str | None = None) -> NoReturn:
+    async def send_text_mode(
+            self,
+            text: str | None = None,
+            reasoning_content_to_image: bool = True,
+            tool_response_to_image: bool = True
+        ) -> NoReturn:
         await self._check_response()
         
-        message = Message()
-        # 推理内容必须渲染为图片
-        if self.reasoning_content:
-            message.append(
-                await self.render_text_to_msg_segment(
-                    self.reasoning_content,
-                    document_bottom_comment = self._get_response_usage()
+        tasks: list[asyncio.Task[MessageSegment]] = []
+        reasoning_content = self.reasoning_content
+        tools_content = self.tools_content
+        content = self.content
+
+        if reasoning_content:
+            if reasoning_content_to_image:
+                reasoning_render_task = asyncio.create_task(
+                    self.render_text_to_msg_segment(
+                        reasoning_content,
+                        document_bottom_comment = self._get_response_usage()
+                    )
+                )
+                tasks.append(reasoning_render_task)
+            else:
+                tasks.append(
+                    asyncio.create_task(
+                        self._content_to_text(
+                            reasoning_content
+                        )
+                    )
+                )
+        if tools_content:
+            if tool_response_to_image:
+                tool_response_render_task = asyncio.create_task(
+                    self.render_text_to_msg_segment(
+                        tools_content,
+                        document_bottom_comment = self._get_response_usage()
+                    )
+                )
+                tasks.append(tool_response_render_task)
+            else:
+                tasks.append(
+                    asyncio.create_task(
+                        self._content_to_text(
+                            tools_content
+                        )
+                    )
+                )
+        if content:
+            tasks.append(
+                asyncio.create_task(
+                    self._content_to_text(
+                        text or content,
+                        suffix = ""
+                    )
                 )
             )
-        if self.content:
-            message.append(text or self.content)
         else:
-            message.append(await self.empty_message())
+            tasks.append(
+                asyncio.create_task(
+                    self.empty_message()
+                )
+            )
+
+        results = await asyncio.gather(*tasks)
+        message = Message(results)
+
+        message.reduce()
         await self._send(message)
 
         # This line is not necessary
         self.handler_finished()
     
-    async def send_image_mode(self, text: str | None = None) -> NoReturn:
+    async def send_image_mode(
+            self,
+            text: str | None = None
+        ) -> NoReturn:
         await self._check_response()
         tasks: list[asyncio.Task[MessageSegment]] = []
 
@@ -159,6 +256,14 @@ class ChatSendMsg(SendMsg):
                 )
             )
             tasks.append(reason_render_task)
+        if self.tools_content:
+            tools_render_task = asyncio.create_task(
+                self.render_text_to_msg_segment(
+                    self.tools_content,
+                    document_bottom_comment = self._get_response_usage()
+                )
+            )
+            tasks.append(tools_render_task)
         if self.content:
             content_render_task = asyncio.create_task(
                 self.render_text_to_msg_segment(
