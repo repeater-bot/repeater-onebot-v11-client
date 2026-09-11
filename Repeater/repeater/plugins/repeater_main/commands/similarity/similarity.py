@@ -80,5 +80,5 @@ class Similarity(CommandPackage):
         similarity = data.similarity
 
         await send_msg.send_text(
-            f"Similarity: {similarity:.2f}"
+            f"Similarity: {similarity}"
         )
