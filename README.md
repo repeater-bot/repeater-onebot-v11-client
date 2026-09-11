@@ -575,7 +575,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `terminate`                | `ter`    | `Terminate`               | `CONTROL`   | 4.9.3.0        | 终止任务                       | 无                                        | 终止当前任务以及所在父级的整条任务树 |
 | `debugMode`                | `dm`     | `DebugMode`               | `CONTROL`   | 4.9.3.0        | 调试模式                       | 格式为：命令 参数                          | 启用调试模式运行一个命令 |
 | `scheduling`               | `scdl`   | `Scheduling`              | `CONTROL`   | 4.9.3.0        | 定时任务                       | 格式为：{cron 表达式} 命令 参数             | 创建一个定时任务，注意花括号需要保留以告知程序 cron 表达式的边界 |
-| `similar`                  | `sim`    | `Similar`                 | `CONTROL`   | 4.9.7.0        | 相似度判断                     | 第一行为相似度，比较第二行与第三行，并执行标签 | 当高于阈值时，执行 `similar:` 标签，否则执行 `dissimilar:` 标签 |
+| `similar`                  | `sml`    | `Similar`                 | `CONTROL`   | 4.9.7.0        | 相似度判断                     | 第一行为相似度，比较第二行与第三行，并执行标签 | 当高于阈值时，执行 `similar:` 标签，否则执行 `dissimilar:` 标签 |
 
 ### Variable Command
 
@@ -830,7 +830,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 
 | Command                    | Abridge  | Full Name                 | Type         | Joined Version | Description                   | Parameter Description                     | Remarks |
 | :---                       | :---     | :---                      | :---:        | :---           | :---                          | :---                                      | :---    |
-| `similarity`               | `simi`   | `Similarity`              | `SIMILARITY` | 4.7.5.0        | 获取相似度                     | `first_text` and `second_text` 包裹的文本  | 获取两段文本的相似度 |
+| `similarity`               | `smrt`   | `Similarity`              | `SIMILARITY` | 4.7.5.0        | 获取相似度                     | `first_text` and `second_text` 包裹的文本  | 获取两段文本的相似度 |
 
 ### See Cmd Command
 
