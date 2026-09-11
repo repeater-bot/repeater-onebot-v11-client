@@ -19,7 +19,7 @@ class SimilarityClient(BaseClient):
             model: str | None = None
         ) -> Response[SimilarityResponse]:
         response = await self.client.post(
-            url = SIMILARITY_ROUTE,
+            url = self.join_url(SIMILARITY_ROUTE, self._persona_info.namespace_str),
             json = SimilarityRequest(
                 first_text = first_text,
                 second_text = second_text,
