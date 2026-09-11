@@ -3,6 +3,7 @@ from .data_manager import *
 from .image_client import *
 from .model_info import *
 from .request_log_client import *
+from .similarity import *
 from .status_client import *
 from .user_file_client import *
 from .template_render_client import *
