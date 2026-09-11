@@ -11,8 +11,8 @@ from ...clients import SimilarityClient
 class Similar(CommandPackage):
     cmd = "similar"
     aliases = {
-        "sim",
-        "SIM",
+        "sml",
+        "SML",
         "Similar",
         "SIMILAR",
     }

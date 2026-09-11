@@ -12,8 +12,8 @@ from ..._adaptation_info import __adaptation__
 class Similarity(CommandPackage):
     cmd = "similarity"
     aliases = {
-        "simi",
-        "SIMI",
+        "smrt",
+        "SMRT",
         "Similarity",
         "SIMILARITY",
     }
