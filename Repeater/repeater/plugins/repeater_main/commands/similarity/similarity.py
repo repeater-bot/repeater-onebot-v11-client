@@ -24,9 +24,9 @@ class Similarity(CommandPackage):
     Usage:
     ```
     /{cmd}
-    text1:
+    first_text:
       ...
-    text2:
+    second_text:
       ...
     ```
     """
