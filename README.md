@@ -575,6 +575,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `terminate`                | `ter`    | `Terminate`               | `CONTROL`   | 4.9.3.0        | 终止任务                       | 无                                        | 终止当前任务以及所在父级的整条任务树 |
 | `debugMode`                | `dm`     | `DebugMode`               | `CONTROL`   | 4.9.3.0        | 调试模式                       | 格式为：命令 参数                          | 启用调试模式运行一个命令 |
 | `scheduling`               | `scdl`   | `Scheduling`              | `CONTROL`   | 4.9.3.0        | 定时任务                       | 格式为：{cron 表达式} 命令 参数             | 创建一个定时任务，注意花括号需要保留以告知程序 cron 表达式的边界 |
+| `similar`                  | `sim`    | `Similar`                 | `CONTROL`   | 4.9.7.0        | 相似度判断                     | 第一行为相似度，比较第二行与第三行，并执行标签 | 当高于阈值时，执行 `similar:` 标签，否则执行 `dissimilar:` 标签 |
 
 ### Variable Command
 
@@ -591,7 +592,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 | Command                    | Abridge  | Full Name                 | Type        | Joined Version | Description                   | Parameter Description                     | Remarks |
 | :---                       | :---     | :---                      | :---:       | :---           | :---                          | :---                                      | :---    |
 | ` `                        | ` `      | ` `                       | `CHAT`      | 4.0 Beta       | 默认命令，自然语言对话          | 自然语言输入                               | 当@复读机的时候，如果没有命中其他命令就会执行这个 Handler |
-| `chat`                     | `c`      | `Chat`                    | `CHAT`      | 4.0 Beta       | 与机器人对话                   | 自然语言输入                               | 强制模型用文字输出，绕过Markdown渲染检查 |
+| `chat`                     | `c`      | `Chat`                    | `CHAT`      | 4.0 Beta       | 与机器人对话                   | 自然语言输入                               | 强制模型用文字输出，绕过 Markdown 渲染检查 (工具调用与推理内容仍渲染) |
 | `keepAnswering`            | `ka`     | `KeepAnswering`           | `CHAT`      | 4.0 Beta       | 持续对话(常规)                 | 无                                        | 无须输入，AI再次回复 |
 | `keepReasoning`            | `kr`     | `KeepReasoning`           | `CHAT`      | 4.0 Beta       | 持续对话(推理)                 | 无                                        | 无须输入，AI再次使用推理回复 |
 | `renderChat`               | `rc`     | `RenderChat`              | `CHAT`      | 4.0 Beta       | 渲染Markdown回复               | 自然语言输入                              | 强制渲染图片输出 |
@@ -608,6 +609,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `toGroupChat`              | `tgc`    | `ToGroupChat`             | `CHAT`      | 4.7.5.0        | 使用群聊身份进行对话            | 群号 自然语言输入                          | 使用群聊身份进行对话 |
 | `toPrivateChat`            | `tpc`    | `ToPrivateChat`           | `CHAT`      | 4.7.5.0        | 使用私聊身份进行对话            | 自然语言输入                               | 使用私聊身份进行对话 |
 | `smartAt`                  | `smat`   | `SmartAT`                 | `CHAT`      | 4.8.1.3        | 默认命令的命令版本              | 自然语言输入                               | 使用该命令，可以用命令的方式触发默认 Handler |
+| `textChat`                 | `txc`    | `TextChat`                | `CHAT`      | 4.9.4.0        | 强制让所有内容以文本方式显示     | 自然语言输入                               | 不建议用于直接输出，可以用于其他命令的输入 |
 
 ### FIM Command
 
@@ -692,6 +694,8 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `addPresetDirectives`      | `apd`    | `AddPresetDirectives`     | `CONFIG`    | 4.6.1.0        | 添加 Directive 预设           | `<type>: <name>`                          | 添加 Directive |
 | `removePresetDirectives`   | `rpd`    | `RemovePresetDirectives`  | `CONFIG`    | 4.6.1.0        | 移除 Directive 预设           | `<type>: <name>`                          | 移除 Directive |
 | `setImageModel`            | `sim`    | `SetImageModel`           | `CONFIG`    | 4.8.0.0        | 设置 Image Model              | 模型名称                                  | 设置 Image Model |
+| `horizontalAccessUserIDStrategy`| `hauids` | `HorizontalAccessUserIDStrategy` | `CONFIG`    | 4.9.6.0 | 设置水平访问用户 ID 策略 | `local_instance`, `separate` or `user`     | 当 Repeater 想要横向访问其他实例时，所使用的用户 ID 策略 |
+| `setEmbeddingModel`        | `sem`    | `SetEmbeddingModel`       | `CONFIG`    | 4.9.7.0        | 设置 Embedding Model          | 模型名称                                  | 设置 Embedding Model |
 
 ### Branch Command
 
@@ -821,6 +825,12 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `tokenCount`               | `tc`     | `TokenCount`              | `STATISTIC` | 4.6.3.0        | 获取当前用户所消耗的 Token 数   | 无                                        | 获取当前用户所消耗的 Token 数量 |
 | `tokenizer`                | `tiz`    | `Tokenizer`               | `STATISTIC` | 4.8.5.0        | 计算一个字符串的 Token 数       | 待计算的字符串                             | 计算一个字符串的 Token 数，需要引用一个 `tokenizer.json` 文件 |
 | `tokenizerText`            | `tizt`   | `TokenizerText`           | `STATISTIC` | 4.8.5.0        | 计算一个字符串的 Token 数       | 待计算的字符串                             | 同上，但 `Most frequent` 部分将使用文本而不是图片输出 |
+
+### Similarity Command
+
+| Command                    | Abridge  | Full Name                 | Type         | Joined Version | Description                   | Parameter Description                     | Remarks |
+| :---                       | :---     | :---                      | :---:        | :---           | :---                          | :---                                      | :---    |
+| `similarity`               | `simi`   | `Similarity`              | `SIMILARITY` | 4.7.5.0        | 获取相似度                     | `first_text` and `second_text` 包裹的文本  | 获取两段文本的相似度 |
 
 ### See Cmd Command
 
