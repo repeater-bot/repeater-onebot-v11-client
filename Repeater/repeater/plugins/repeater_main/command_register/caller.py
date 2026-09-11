@@ -806,6 +806,8 @@ class CommandCaller:
         """
         total = len(cls.commands)
         yield f"Registed {total} commands"
+        yield f"Registed {len(cls.triggers)} triggers"
+        yield f"Registed {len(cls.components)} components"
         
         if total > 0:
             yield "Repeater:"
