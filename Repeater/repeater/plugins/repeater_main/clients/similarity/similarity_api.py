@@ -24,7 +24,7 @@ class SimilarityClient(BaseClient):
                 first_text = first_text,
                 second_text = second_text,
                 model = model,
-            )
+            ).model_dump(exclude_none = True)
         )
         return Response(
             httpx_response = response,
