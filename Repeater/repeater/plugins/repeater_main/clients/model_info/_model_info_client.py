@@ -10,7 +10,8 @@ from ...assist import Response, BaseClient
 from ...exit_register import ExitRegister
 from ._models import (
     ModelsResponse,
-    PingProviderResponse
+    PingProviderResponse,
+    RefreshResponse
 )
 
 exit_register = ExitRegister()
@@ -64,4 +65,19 @@ class ModelInfoClient(BaseClient):
         return Response(
             httpx_response = response,
             model = PingProviderResponse,
+        )
+    # endregion
+
+    # region refresh
+    async def refresh(self, provider_id: str | None = None) -> Response[RefreshResponse]:
+        url = self.join_url(REFRESH)
+        if provider_id is not None:
+            url = self.join_url_static(REFRESH, provider_id)
+
+        response = await self.client.post(
+            url
+        )
+        return Response(
+            httpx_response = response,
+            model = RefreshResponse,
         )

@@ -5,6 +5,7 @@ from ._models import (
     PingProviderResponse,
     PingProviderStatisics,
     PingProviderDetails,
+    RefreshResponse
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "PingProviderResponse",
     "PingProviderStatisics",
     "PingProviderDetails",
+    "RefreshResponse"
 ]
