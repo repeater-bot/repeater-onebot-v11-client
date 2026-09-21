@@ -1990,7 +1990,7 @@ class SendMsg:
         """
         send_msg = self._prefix + message + self._suffix
         if reply:
-            send_msg = self._persona_info.reply + send_msg
+            send_msg = self._reply + send_msg
         try:
             await self._send_to_target(
                 message = send_msg
