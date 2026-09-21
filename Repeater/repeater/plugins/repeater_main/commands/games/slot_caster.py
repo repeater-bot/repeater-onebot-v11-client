@@ -74,6 +74,11 @@ class SlotCaster(CommandPackage):
             await send_msg.send_error("Please enter the template.")
             return
 
+        await send_msg.send_text(
+            "Please enter the items. If there are only spaces in the items, exit.",
+            continue_handler = True
+        )
+
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
             items = new_message.message_stripped_str.splitlines()

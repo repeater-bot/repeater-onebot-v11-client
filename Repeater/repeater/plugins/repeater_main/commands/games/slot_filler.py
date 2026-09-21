@@ -76,7 +76,10 @@ class SlotFiller(CommandPackage):
 
         items = text.splitlines()
 
-        wait_message = await CommandCaller.wait_message(persona_info.namespace)
+        await send_msg.send_text(
+            "Please enter the template and exit if there are no parentheses in the input.",
+            continue_handler = True
+        )
 
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
