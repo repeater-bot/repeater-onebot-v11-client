@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import uuid
 import httpx
 
 from nonebot import get_bots
@@ -74,8 +75,8 @@ class PersonaInfo:
             bot: Bot,
             event: MessageEvent,
             args: str | Message | None = None,
-            enter_type: EnterType = EnterType.Command,
-            http_client: httpx.AsyncClient | None = None
+            task_id: uuid.UUID | None = None,
+            enter_type: EnterType = EnterType.Command
         ) -> None:
         """
         创建一个 PersonaInfo 对象
@@ -90,6 +91,7 @@ class PersonaInfo:
             self._bot.self_id
         )
         self._message_event: MessageEvent = event
+        self._task_id: uuid.UUID = task_id or uuid.uuid4()
 
         self._args: Message | None
         if isinstance(args, Message):
@@ -121,12 +123,13 @@ class PersonaInfo:
             ("bot", self._bot),
             ("event", self._message_event),
             ("args", self._args),
+            ("task_id", self._task_id),
             ("enter_type", self._enter_type),
         ]
         return f"{self.__class__.__name__}({', '.join([f'{k}={v!r}' for k, v in args_map if v is not None])})"
     
     @classmethod
-    def from_command(cls, bot: Bot, event: MessageEvent, args: Message | None = None) -> PersonaInfo:
+    def from_command(cls, bot: Bot, event: MessageEvent, args: Message | None = None, task_id: uuid.UUID | None = None) -> PersonaInfo:
         """
         从命令事件构建
 
@@ -138,12 +141,13 @@ class PersonaInfo:
             bot = bot,
             event = event,
             args = args,
+            task_id = task_id,
             enter_type = EnterType.Command
         )
         return persona_info
     
     @classmethod
-    def from_message(cls, bot: Bot, event: MessageEvent) -> PersonaInfo:
+    def from_message(cls, bot: Bot, event: MessageEvent, task_id: uuid.UUID | None = None) -> PersonaInfo:
         """
         从消息事件创建
 
@@ -153,6 +157,7 @@ class PersonaInfo:
         persona_info = cls(
             bot = bot,
             event = event,
+            task_id = task_id,
             enter_type = EnterType.Message
         )
         return persona_info
@@ -168,6 +173,7 @@ class PersonaInfo:
             bot = persona_info.bot,
             event = persona_info.event,
             args = persona_info.args,
+            task_id = persona_info.task_id,
             enter_type = EnterType.Horizontal
         )
         return persona_info
@@ -177,6 +183,7 @@ class PersonaInfo:
             bot: Bot | NoGive = nogive,
             event: MessageEvent | NoGive = nogive,
             args: Message | None | NoGive = nogive,
+            task_id: uuid.UUID | None | NoGive = nogive,
             enter_type: EnterType | NoGive = nogive,
             copydata: bool = False,
             deepcopy: bool = False
@@ -218,6 +225,15 @@ class PersonaInfo:
             deepcopy = deepcopy
         )
 
+        new_task_id = copy_value(
+            value = task_id,
+            get_new_value_deep = lambda: copy.deepcopy(self._task_id),
+            get_new_value_copy = lambda: copy.copy(self._task_id),
+            get_new_value = lambda: self._task_id,
+            copydata = copydata,
+            deepcopy = deepcopy
+        )
+
         new_enter_type = copy_value(
             value = enter_type,
             get_new_value_deep = lambda: self._enter_type,
@@ -231,6 +247,7 @@ class PersonaInfo:
             bot = new_bot,
             event = new_event,
             args = new_args,
+            task_id = new_task_id,
             enter_type = new_enter_type,
         )
     
@@ -361,11 +378,18 @@ class PersonaInfo:
             elif message.type not in ["at", "reply"]:
                 return True
         return False
+
+    @property
+    def task_id(self) -> uuid.UUID:
+        """
+        任务 ID
+        """
+        return self._task_id
     
     @property
     def adapter(self) -> Adapter:
         """
-        获取 Bot 的 Adapter 实例
+        Bot 的 Adapter 实例
         """
         return self._bot.adapter
     
