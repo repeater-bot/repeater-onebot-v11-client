@@ -90,6 +90,7 @@ PS: 此处的长度评分函数并非实际算法，仅为演示使用
 | cachetools | 7.1.4   | MIT License  | [MIT](https://github.com/tkem/cachetools/blob/master/LICENSE)          | *Entire Project*              |
 | croniter   | 6.2.2   | MIT License  | [MIT](https://github.com/pallets-eco/croniter/blob/master/LICENSE)     | Hello Content                 |
 | tokenizer  | 0.23.1  | MIT License  | [MIT](https://github.com/mideind/Tokenizer/blob/master/LICENSE.txt)    | Count tokens in a string      |
+| typing-extensions | 4.16.0| Python Software Foundation License | [PSFL](https://github.com/python/typing_extensions/blob/master/typing_extensions/LICENSE) | *Entire Project* |
 
 具体依赖的License请查看[LICENSES.md](LICENSES.md)
 
