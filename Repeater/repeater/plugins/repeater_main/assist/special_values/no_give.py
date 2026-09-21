@@ -1,4 +1,5 @@
-from typing import Self, Any, TypeGuard
+from typing import Self, Any
+from typing_extensions import TypeIs
 
 class NoGive:
     """
@@ -11,10 +12,11 @@ class NoGive:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    @classmethod
-    def is_no_give(cls, value: Any) -> TypeGuard[Self]:
-        return value is cls._instance
+nogive = NoGive()
 
-    @classmethod
-    def is_no_give_type(cls, value: type) -> TypeGuard[type[Self]]:
-        return type(value) is type and issubclass(value, cls)
+def is_no_give(value: Any | NoGive) -> TypeIs[NoGive]:
+    # Compare addresses directly to speed up the comparison calculation, because the `NoGive` type is a global singleton.
+    return value is nogive
+
+def is_no_give_type(value: type[Any | NoGive]) -> TypeIs[type[NoGive]]:
+    return type(value) is type and issubclass(value, NoGive)
