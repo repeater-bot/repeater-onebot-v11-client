@@ -1,7 +1,7 @@
 import random
 import asyncio
 
-from ...assist import PersonaInfo, SendMsg
+from ...assist import PersonaInfo, SendMsg, Downloader
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
@@ -42,10 +42,26 @@ class SlotFiller(CommandPackage):
         () drives to pick up () to work
         ```
     """
+    def __init__(self):
+        self.downloader = Downloader()
 
     @staticmethod
     def choices(items: list[str], k: int = 1) -> list[str]:
-        return random.sample(items, k)
+        if k < 1:
+            return []
+        elif k <= len(items):
+            return random.sample(items, k)
+        else:
+            choices: list[str] = []
+            for _ in range(k // len(items)):
+                choices.extend(random.sample(items, k=len(items)))
+            
+            if k % len(items) == 0:
+                return items
+            
+            choices.extend(random.sample(items, k=k % len(items)))
+            
+            return choices
 
     @classmethod
     def replace(cls, template: str, symbol: str, items: list[str]) -> str | None:
@@ -67,8 +83,24 @@ class SlotFiller(CommandPackage):
 
         return None
 
+    async def get_text(self, persona_info: PersonaInfo) -> str:
+        text_buffer: list[str] = []
+
+        files = persona_info.get_file_infos()
+        for file in files:
+            try:
+                text = await self.downloader.download_text(file.url)
+            except UnicodeDecodeError:
+                continue
+
+            text_buffer.append(text)
+
+        text_buffer.append(persona_info.message_stripped_str)
+
+        return "\n".join(text_buffer)
+
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        text = persona_info.message_stripped_str
+        text = await self.get_text(persona_info)
 
         if not text:
             await send_msg.send_error("Please enter the candidate list first")
@@ -83,7 +115,7 @@ class SlotFiller(CommandPackage):
 
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
-            template = new_message.message_stripped_str
+            template = await self.get_text(persona_info)
 
             new_text = await asyncio.to_thread(
                 self.replace_all,
