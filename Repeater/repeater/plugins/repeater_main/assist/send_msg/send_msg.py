@@ -803,8 +803,9 @@ class SendMsg:
         提示前缀
         """
         return (
-            f"==== {self._component} ====\n"
-            f"> [{self._persona_info.namespace}]\n"
+            f"== {self._component} ==\n"
+            f"> [{self._persona_info.namespace}|{str(datetime.now().isoformat())}]\n"
+            f"> [Task: {self._persona_info.task_id}]"
         )
     
     @overload
@@ -846,7 +847,9 @@ class SendMsg:
         if isinstance(prompt, Message):
             await self._send(
                 Message(
-                    self.prompt_prefix,
+                    MessageSegment.text(
+                        self.prompt_prefix
+                    ),
                 ).extend(prompt),
                 reply = reply,
                 break_code = break_code,
