@@ -1,3 +1,4 @@
+import uuid
 import httpx
 import textwrap
 
@@ -204,7 +205,7 @@ class CommandPackage(ABC, Generic[T]):
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
-    async def message_enter(self, bot: Bot, event: MessageEvent, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
+    async def message_enter(self, bot: Bot, event: MessageEvent, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Message Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -217,7 +218,8 @@ class CommandPackage(ABC, Generic[T]):
         """
         persona_info = PersonaInfo.from_message(
             bot = bot,
-            event = event
+            event = event,
+            task_id = task_id
         )
         send_msg = SendMsg(
             component = self.component,
@@ -226,7 +228,7 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def command_enter(self, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
+    async def command_enter(self, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Command Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -242,6 +244,7 @@ class CommandPackage(ABC, Generic[T]):
             bot = bot,
             event = event,
             args = args,
+            task_id = task_id
         )
         send_msg = SendMsg(
             component = self.component,
