@@ -47,25 +47,13 @@ class SlotFiller(CommandPackage):
 
     @staticmethod
     def choices(items: list[str], k: int = 1) -> list[str]:
-        if k < 1:
-            return []
-        elif k <= len(items):
-            return random.sample(items, k)
-        else:
-            choices: list[str] = []
-            for _ in range(k // len(items)):
-                choices.extend(random.sample(items, k=len(items)))
-            
-            if k % len(items) == 0:
-                return items
-            
-            choices.extend(random.sample(items, k=k % len(items)))
-            
-            return choices
+        return random.choices(items, k=k)
 
     @classmethod
     def replace(cls, template: str, symbol: str, items: list[str]) -> str | None:
         count = template.count(symbol)
+        if count <= 0:
+            return None
 
         choices = cls.choices(items, count)
 
@@ -75,15 +63,23 @@ class SlotFiller(CommandPackage):
 
     @classmethod
     def replace_all(cls, template: str, items: list[str]) -> str | None:
+        if not brackets:
+            return template
+
+        results: list[str | None] = []
         for symbol in brackets:
             new_message = cls.replace(template, symbol, items)
             if new_message is None:
                 continue
-            return new_message
+            results.append(new_message)
+            template = new_message
 
-        return None
+        if not any(results):
+            return None
 
-    async def get_text(self, persona_info: PersonaInfo) -> str:
+        return template
+
+    async def _get_text(self, persona_info: PersonaInfo) -> str:
         text_buffer: list[str] = []
 
         files = persona_info.get_file_infos()
@@ -96,6 +92,23 @@ class SlotFiller(CommandPackage):
             text_buffer.append(text)
 
         text_buffer.append(persona_info.message_stripped_str)
+
+        return "\n".join(text_buffer)
+
+    async def get_text(self, persona_info: PersonaInfo) -> str:
+        text_buffer: list[str] = []
+        for replys in await persona_info.from_reply_reversed_chain():
+            text_buffer.append(
+                await self._get_text(
+                    replys
+                )
+            )
+
+        text_buffer.append(
+            await self._get_text(
+                persona_info
+            )
+        )
 
         return "\n".join(text_buffer)
 
@@ -115,7 +128,7 @@ class SlotFiller(CommandPackage):
 
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
-            template = await self.get_text(persona_info)
+            template = await self.get_text(new_message)
 
             new_text = await asyncio.to_thread(
                 self.replace_all,
