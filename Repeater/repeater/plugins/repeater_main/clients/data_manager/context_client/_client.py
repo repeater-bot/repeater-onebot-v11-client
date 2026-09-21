@@ -6,7 +6,8 @@ from ....logger import logger as base_logger
 from ._response import (
     WithdrawResponse,
     ContextTotalLengthResponse,
-    RoleStructureCheckerResponse
+    RoleStructureCheckerResponse,
+    ContextPairsResponse
 )
 from .._base_user_data_client import UserDataClient
 from ...content_unit import ContentUnit
@@ -72,6 +73,17 @@ class ContextClient(UserDataClient):
             )
         else:
             return Response(response)
+
+    # region get context
+    async def get_context_pairs(self) -> Response[ContextPairsResponse]:
+        logger.info("Getting context pairs")
+        response = await self.client.get(
+            self.join_url_static(GET_CONTEXT_PAIRS_ROUTE, self.namespace_str)
+        )
+        return Response(
+            httpx_response = response,
+            model = ContextPairsResponse
+        )
     
     def get_context_url(self) -> str:
         return self.join_url(GET_CONTEXT_ROUTE, f"{self._persona_info.namespace_str}.json")

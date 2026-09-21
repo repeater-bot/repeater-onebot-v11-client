@@ -20,3 +20,9 @@ class RoleStructureCheckerResponse(BaseModel):
     index: int = -1
     role: ContentRole | None = None
     expected_role: list[ContentRole] | None = None
+
+class ContextPairsResponse(BaseModel):
+    context_pairs: list[list[ContentUnit]] = Field(default_factory=list)
+    length: int = 0
+    context_length: int = 0
+    total_character_length: int = 0
