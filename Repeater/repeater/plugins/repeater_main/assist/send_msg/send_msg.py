@@ -805,7 +805,7 @@ class SendMsg:
         return (
             f"== {self._component} ==\n"
             f"> [{self._persona_info.namespace}|{str(datetime.now().isoformat())}]\n"
-            f"> [Task: {self._persona_info.task_id}]"
+            f"> [Task: {self._persona_info.task_id}]\n"
         )
     
     @overload
