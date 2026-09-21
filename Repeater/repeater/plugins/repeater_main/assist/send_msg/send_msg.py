@@ -22,6 +22,7 @@ from ..namespace import MessageSource
 from ..text_render.text_render import TextRender
 from ..response.response import Response
 from ..chattts import ChatTTSAPI
+from ..special_values import NoGive, nogive, is_no_give
 from typing import (
     Iterable,
     Any,
@@ -165,6 +166,7 @@ class SendMsg:
             component: str,
             persona_info: PersonaInfo,
             matcher: Type[Matcher],
+            reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
             target_group: str | None = None,
@@ -178,6 +180,7 @@ class SendMsg:
             component: str,
             persona_info: PersonaInfo,
             matcher: Type[Matcher] | None = None,
+            reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
             target_group: str | None = None,
@@ -190,6 +193,7 @@ class SendMsg:
             component: str,
             persona_info: PersonaInfo,
             matcher: Type[Matcher] | None = None,
+            reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
             target_group: str | None = None,
@@ -198,6 +202,7 @@ class SendMsg:
         ):
         self._component: str = component
         self._persona_info: PersonaInfo = persona_info
+        self._reply: MessageSegment = reply or self._persona_info.reply
         self._prefix: Message = prefix or Message()
         self._suffix: Message = suffix or Message()
         self._chat_tts_api = ChatTTSAPI()
@@ -222,6 +227,7 @@ class SendMsg:
             ("component", self._component),
             ("persona_info", self._persona_info),
             ("matcher", self._matcher),
+            ("reply", self._reply),
             ("prefix", self._prefix),
             ("suffix", self._suffix),
             ("target_group", self._target_group),
@@ -232,39 +238,37 @@ class SendMsg:
     
     def copy(
             self,
-            component: str | None = None,
-            persona_info: PersonaInfo | None = None,
-            matcher: Type[Matcher] | None = None,
-            prefix: Message | None = None,
-            suffix: Message | None = None,
-            target_group: str | None = None,
-            target_user: str | None = None,
-            send_target: SendingTarget | None = None,
+            component: str | NoGive = nogive,
+            persona_info: PersonaInfo | NoGive = nogive,
+            matcher: Type[Matcher] | None | NoGive = nogive,
+            reply: MessageSegment | None | NoGive = nogive,
+            prefix: Message | None | NoGive = nogive,
+            suffix: Message | None | NoGive = nogive,
+            target_group: str | None | NoGive = nogive,
+            target_user: str | None | NoGive = nogive,
+            send_target: SendingTarget | NoGive = nogive
         ) -> "SendMsg":
-        component = component if component is not None else self._component
-        persona_info = persona_info if persona_info is not None else self._persona_info.copy()
-        matcher = matcher if matcher is not None else self._matcher
-        send_target = send_target if send_target is not None else self.sending_target
-        target_group = target_group if target_group is not None else self._target_group
-        target_user = target_user if target_user is not None else self._target_user
+        component = component if not is_no_give(component) else self._component
+        persona_info = persona_info if not is_no_give(persona_info) else self._persona_info.copy()
+        matcher = matcher if not is_no_give(matcher) else self._matcher
+        reply = reply if not is_no_give(reply) else self._reply
+        prefix = prefix if not is_no_give(prefix) else self._prefix
+        suffix = suffix if not is_no_give(suffix) else self._suffix
+        send_target = send_target if not is_no_give(send_target) else self.sending_target
+        target_group = target_group if not is_no_give(target_group) else self._target_group
+        target_user = target_user if not is_no_give(target_user) else self._target_user
+
         instance = self.__class__(
             component = component,
             persona_info = persona_info,
             matcher = matcher,
-            send_target = send_target,
+            reply = reply,
+            prefix = prefix,
+            suffix = suffix,
             target_group = target_group,
             target_user = target_user,
+            send_target = send_target,
         )
-
-        if prefix is not None:
-            instance.set_prefix(prefix)
-        else:
-            instance.set_prefix(self._prefix.copy())
-        
-        if suffix is not None:
-            instance.set_suffix(suffix)
-        else:
-            instance.set_suffix(self._suffix.copy())
         
         return instance
 
