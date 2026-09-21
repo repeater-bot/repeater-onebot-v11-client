@@ -50,7 +50,7 @@ class GenerateCandidateAnswer(BaseChat):
                 ContentRole.USER: ContentRole.ASSISTANT,
                 ContentRole.ASSISTANT: ContentRole.USER,
                 ContentRole.SYSTEM: None,
-                ContentRole.TOOLS: None
+                ContentRole.TOOL: None
             }
         )
         return response

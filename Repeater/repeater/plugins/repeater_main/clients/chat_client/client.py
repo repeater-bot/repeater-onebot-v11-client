@@ -213,7 +213,7 @@ class ChatClient(BaseClient):
                     return
         
         await self.break_chat_task(task_id)
-        raise BreakWithErrorMessage(message)
+        raise BreakWithErrorMessage(2, message)
     
     async def break_chat_task(self, task_id: str | None = None) -> Response[BreakResponse]:
         """
