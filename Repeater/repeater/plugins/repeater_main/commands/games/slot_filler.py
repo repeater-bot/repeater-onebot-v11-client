@@ -44,16 +44,18 @@ class SlotFiller(CommandPackage):
     """
 
     @staticmethod
-    def choice(items: list[str]) -> str:
-        return random.choice(items)
+    def choices(items: list[str], k: int = 1) -> list[str]:
+        return random.sample(items, k)
 
     @classmethod
     def replace(cls, template: str, symbol: str, items: list[str]) -> str | None:
-        if template.index(symbol) == -1:
-            return None
+        count = template.count(symbol)
 
-        new_message = template.replace(symbol, cls.choice(items))
-        return new_message
+        choices = cls.choices(items, count)
+
+        for choice in choices:
+            template = template.replace(symbol, choice, 1)
+        return template
 
     @classmethod
     def replace_all(cls, template: str, items: list[str]) -> str | None:
@@ -73,6 +75,8 @@ class SlotFiller(CommandPackage):
             return
 
         items = text.splitlines()
+
+        wait_message = await CommandCaller.wait_message(persona_info.namespace)
 
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
@@ -94,6 +98,5 @@ class SlotFiller(CommandPackage):
 
             await new_send_msg.send_check_length_prompt(
                 prompt = new_text,
-                reply = False,
                 continue_handler = True
             )
