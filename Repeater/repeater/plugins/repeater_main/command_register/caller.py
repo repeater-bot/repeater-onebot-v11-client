@@ -148,8 +148,14 @@ class CommandCaller:
                 "Run command handler: {name}",
                 name = package.component,
             )
-            persona_info ,send_msg = await package.command_enter(bot, event, args, matcher)
             task_id = uuid.uuid4()
+            persona_info ,send_msg = await package.command_enter(
+                bot,
+                event,
+                args,
+                matcher,
+                task_id
+            )
             return await cls.run_handle(
                 task_id,
                 package,
@@ -173,8 +179,13 @@ class CommandCaller:
                 "Run message handler: {name}",
                 name = package.component,
             )
-            persona_info ,send_msg = await package.message_enter(bot, event, matcher)
             task_id = uuid.uuid4()
+            persona_info ,send_msg = await package.message_enter(
+                bot,
+                event,
+                matcher,
+                task_id
+            )
             return await cls.run_handle(
                 task_id,
                 package,

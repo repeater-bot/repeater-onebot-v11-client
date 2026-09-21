@@ -1,4 +1,4 @@
-from ..special_values import NoGive
+from ..special_values import NoGive, is_no_give
 from typing import Callable, TypeVar
 
 T = TypeVar("T")
@@ -23,7 +23,7 @@ def copy_value(
     """
     new_value: T
     
-    if isinstance(value, NoGive):
+    if is_no_give(value):
         if copydata:
             if deepcopy:
                 new_value = get_new_value_deep()

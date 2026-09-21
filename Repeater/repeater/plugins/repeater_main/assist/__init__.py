@@ -74,7 +74,10 @@ from .file_downloader import (
     Downloader
 )
 from .special_values import (
-    NoGive
+    NoGive,
+    nogive,
+    is_no_give,
+    is_no_give_type,
 )
 
 __all__ = [
@@ -139,5 +142,8 @@ __all__ = [
 
     "Downloader",
 
-    "NoGive"
+    "NoGive",
+    "nogive",
+    "is_no_give",
+    "is_no_give_type",
 ]
