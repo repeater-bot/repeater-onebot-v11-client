@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import httpx
-import aiofiles
 
 from nonebot import get_bots
 from nonebot.adapters.onebot.v11 import (
@@ -37,7 +36,7 @@ from .cached_apis import CachedAPI
 from ..user_config import UserConfigLoader, UserConfigs
 from ..permission_checker import PermissionChecker
 from ...client_configs import storage_configs
-from ..special_values import NoGive
+from ..special_values import NoGive, nogive
 from ._copy_value import copy_value
 
 class PersonaInfo:
@@ -175,10 +174,10 @@ class PersonaInfo:
     
     def copy(
             self,
-            bot: Bot | NoGive = NoGive(),
-            event: MessageEvent | NoGive = NoGive(),
-            args: Message | None | NoGive = NoGive(),
-            enter_type: EnterType | NoGive = NoGive(),
+            bot: Bot | NoGive = nogive,
+            event: MessageEvent | NoGive = nogive,
+            args: Message | None | NoGive = nogive,
+            enter_type: EnterType | NoGive = nogive,
             copydata: bool = False,
             deepcopy: bool = False
         ) -> PersonaInfo:
