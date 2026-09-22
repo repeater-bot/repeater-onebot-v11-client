@@ -18,6 +18,7 @@ from .storage_configs_instance import storage_configs
 from .text_length_score_configs import TextLengthScoreConfigs
 from .text_length_score_threshold import TextLengthScoreThreshold
 from .throw_on_duplicate import ThrowOnDuplicate
+from .external_trigger_server import ExternalTriggerServer
 
 __all__ = [
     "BehavioralACT",
@@ -38,5 +39,6 @@ __all__ = [
     "TextLengthScoreConfigs",
     "TextLengthScoreThreshold",
     "ThrowOnDuplicate",
-    "GenerateImageFileType"
+    "GenerateImageFileType",
+    "ExternalTriggerServer",
 ]
