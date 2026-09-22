@@ -75,9 +75,10 @@ class CommandCaller:
             "startup..."
         )
 
-        cls.et_server_task = asyncio.create_task(
-            cls.run_et_server()
-        )
+        if storage_configs.external_trigger_server.enabled:
+            cls.et_server_task = asyncio.create_task(
+                cls.run_et_server()
+            )
 
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
