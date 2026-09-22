@@ -8,6 +8,7 @@ from .package import CommandPackage
 from ..assist import (
     PersonaInfo,
     SendMsg,
+    SendingTarget,
     Namespace,
     Variables
 )
@@ -15,6 +16,7 @@ from ..cmd_info import CmdTypes
 from ..client_configs import storage_configs
 from ..exceptions import *
 from nonebot.exception import NoneBotException
+from nonebot import get_driver
 from typing import (
     Any,
     Type,
@@ -34,6 +36,7 @@ from .listen_type import ListenType
 from nonebot import logger
 from .running_package import RunningPackage
 from .sub_cmd_exit import SubCmdBreaked, SubCmdExit
+from .external_trigger import register_external_trigger, et_server
 
 T_Handler_Result = TypeVar("T_Handler_Result")
 
@@ -55,6 +58,85 @@ class CommandCaller:
 
     listen_message_tasks: dict[Namespace, set[asyncio.Future[PersonaInfo]]] = {}
     listen_lock: asyncio.Lock = asyncio.Lock()
+
+    @classmethod
+    async def run_et_server(cls):
+        await et_server.serve()
+
+    @classmethod
+    async def on_startup(cls):
+        tasks: list[asyncio.Task] = []
+        for command in cls.commands.values():
+            tasks.append(
+                asyncio.create_task(
+                    command.on_framework_startup()
+                )
+            )
+        await asyncio.gather(*tasks)
+
+    @classmethod
+    async def on_shutdown(cls):
+        tasks: list[asyncio.Task] = []
+        for command in cls.commands.values():
+            tasks.append(
+                asyncio.create_task(
+                    command.on_framework_shutdown()
+                )
+            )
+        await asyncio.gather(*tasks)
+        
+        for listening in cls.listen_message_tasks.values():
+            for task in listening:
+                task.cancel()
+
+    @classmethod
+    async def on_bot_connect(cls, bot: Bot):
+
+        async def external_trigger_callback(handler: str, event: MessageEvent, args: Message):
+            nonlocal cls, bot
+            package = cls.match_trigger_or_component(handler)
+                
+            messages, result = await cls._external_enter(
+                package = package,
+                bot = bot,
+                event = event,
+                args = args,
+            )
+
+            retcode: int = 0
+
+            if isinstance(result, SubCmdExit):
+                retcode = result.code
+
+            return messages, retcode
+
+        
+        register_external_trigger.register(
+            bot.self_id,
+            external_trigger_callback
+        )
+
+        tasks: list[asyncio.Task] = []
+        for command in cls.commands.values():
+            tasks.append(
+                asyncio.create_task(
+                    command.on_bot_connect(bot)
+                )
+            )
+        await asyncio.gather(*tasks)
+
+    @classmethod
+    async def on_bot_disconnect(cls, bot: Bot):
+        register_external_trigger.unregister(bot.self_id)
+
+        tasks: list[asyncio.Task] = []
+        for command in cls.commands.values():
+            tasks.append(
+                asyncio.create_task(
+                    command.on_bot_disconnect(bot)
+                )
+            )
+        await asyncio.gather(*tasks)
 
     @staticmethod
     def cmd_prefixs() -> set[str]:
@@ -505,8 +587,8 @@ class CommandCaller:
         else:
             raise TypeError("package must be CommandPackage or subclass of CommandPackage")
         
-        persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg)
         task_id = uuid.uuid4()
+        persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg, task_id)
         return await cls.run_handle(
             task_id = task_id,
             package = package_instance,
@@ -537,8 +619,8 @@ class CommandCaller:
         else:
             raise TypeError("package must be CommandPackage or subclass of CommandPackage")
         
-        persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg)
         task_id = uuid.uuid4()
+        persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg, task_id)
         loop = asyncio.get_running_loop()
         created: asyncio.Future[RunningPackage[T_Handler_Result]] = loop.create_future()
         asyncio.create_task(
@@ -552,6 +634,55 @@ class CommandCaller:
             )
         )
         return await created
+
+    @classmethod
+    async def _external_enter(
+        cls,
+        package: Type[CommandPackage[T_Handler_Result]] | CommandPackage[T_Handler_Result],
+        bot: Bot,
+        event: MessageEvent,
+        args: Message,
+        debug_mode: bool | None = None
+    ) -> tuple[list[Message], T_Handler_Result | Any]:
+        """
+        Horizontal call handler and waiting for the running package to created.
+
+        :param package: CommandPackage
+        :param persona_info: PersonaInfo
+        :param send_msg: SendMsg
+        """
+        if isinstance(package, CommandPackage):
+            package_instance = package
+        elif isinstance(package, type) and issubclass(package, CommandPackage):
+            package_instance: CommandPackage[T_Handler_Result] = cls.commands[package]
+        else:
+            raise TypeError("package must be CommandPackage or subclass of CommandPackage")
+        
+        task_id = uuid.uuid4()
+        persona_info, send_msg = await package_instance.external_enter(
+            bot = bot,
+            event = event,
+            args = args,
+            task_id = task_id
+        )
+
+        outputs: list[Message] = []
+        async def get_message_outputs(message: Message, target: SendingTarget):
+            nonlocal outputs
+            outputs.append(message)
+
+        send_msg_copy = send_msg.copy(
+            send_hook = get_message_outputs
+        )
+
+        result = await cls.run_handle(
+            task_id = task_id,
+            package = package_instance,
+            persona_info = persona_info,
+            send_msg = send_msg_copy,
+            debug_mode = debug_mode
+        )
+        return outputs, result
 
     
     @staticmethod

@@ -252,8 +252,35 @@ class CommandPackage(ABC, Generic[T]):
             matcher = matcher
         )
         return persona_info, send_msg
+
+    async def external_enter(self, bot: Bot, event: MessageEvent, args: Message, task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+        """
+        When you register an External Handler, the Repeater will call this section before starting to get the abstraction layer object.
+        
+        You can intercept and do whatever you want here.
+
+        :param bot: Bot object
+        :param event: MessageEvent object
+        :param args: Message object
+        :param matcher: Matcher object
+        :param task_id: Task ID
+        :return: PersonaInfo object, SendMsg object
+        """
+        persona_info = PersonaInfo.from_external(
+            bot = bot,
+            event = event,
+            args = args,
+            task_id = task_id
+        )
+        send_msg = SendMsg(
+            component = self.component,
+            persona_info = persona_info,
+            matcher = None
+        )
+        return persona_info, send_msg
+
     
-    async def horizontal_enter(self, persona_info: PersonaInfo, send_msg: SendMsg | None = None) -> tuple[PersonaInfo, SendMsg]:
+    async def horizontal_enter(self, persona_info: PersonaInfo, send_msg: SendMsg | None = None, task_id: uuid.UUID | None = None) -> tuple[PersonaInfo, SendMsg]:
         """
         This method is called when the call comes from another Handler other than the framework.
 
@@ -266,7 +293,7 @@ class CommandPackage(ABC, Generic[T]):
                 component = self.component,
                 persona_info = persona_info,
             )
-        persona_info_copy = PersonaInfo.from_horizontal(persona_info)
+        persona_info_copy = PersonaInfo.from_horizontal(persona_info, task_id = task_id)
         return persona_info_copy, send_msg
 
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
@@ -651,3 +678,39 @@ class CommandPackage(ABC, Generic[T]):
                 handler = repr(cls),
                 matcher = repr(matcher)
             )
+
+    async def on_framework_startup(self):
+        """
+        This section is executed when the framework is started.
+
+        You can override this method and do what you need to do.
+        """
+        pass
+
+    async def on_framework_shutdown(self):
+        """
+        This section is executed when the framework is shutdown.
+
+        You can override this method and do what you need to do.
+        """
+        pass
+
+    async def on_bot_connect(self, bot: Bot):
+        """
+        This section is executed when the bot is connected.
+
+        You can override this method and do what you need to do.
+
+        :param bot: The bot object
+        """
+        pass
+
+    async def on_bot_disconnect(self, bot: Bot):
+        """
+        This section is executed when the bot is disconnected.
+
+        You can override this method and do what you need to do.
+
+        :param bot: The bot object
+        """
+        pass
