@@ -1,6 +1,5 @@
 from fastapi import HTTPException
 from nonebot.adapters.onebot.v11 import Message
-from pkg_resources import to_filename
 from ...assist import Namespace
 from .router import root_router
 from .request import ExternalTriggerRequest
