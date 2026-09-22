@@ -131,7 +131,7 @@ class CommandCaller:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
-            messages, result = await cls._external_enter(
+            messages, result = await cls.external_enter(
                 package = package,
                 bot = bot,
                 event = event,
@@ -414,7 +414,7 @@ class CommandCaller:
         Cancel the wait message.
 
         :param namespace: The target of listening.
-        :return: None
+        :return: Whether the cancel is successful.
         """
         async with cls.listen_lock:
             logger.info(
@@ -506,7 +506,6 @@ class CommandCaller:
         :param package: The command package.
         :param persona_info: The persona info.
         :param send_msg: The send message function.
-        :param created: The running package created future.
         :param debug_mode: The debug mode.
         :return: The result of the message handler.
         """
@@ -556,7 +555,6 @@ class CommandCaller:
         Enter the message handler.
 
         :param task_id: The task id.
-        :param created: The running package created future.
         :param package: The command package.
         :param persona_info: The persona info.
         :param send_msg: The send message function.
@@ -709,6 +707,8 @@ class CommandCaller:
         :param package: CommandPackage
         :param persona_info: PersonaInfo
         :param send_msg: SendMsg
+        :param debug_mode: DebugMode
+        :return: RunningPackage
         """
         if isinstance(package, CommandPackage):
             package_instance = package
@@ -734,7 +734,7 @@ class CommandCaller:
         return await created
 
     @classmethod
-    async def _external_enter(
+    async def external_enter(
         cls,
         package: Type[CommandPackage[T_Handler_Result]] | CommandPackage[T_Handler_Result],
         bot: Bot,
@@ -746,8 +746,11 @@ class CommandCaller:
         Horizontal call handler and waiting for the running package to created.
 
         :param package: CommandPackage
-        :param persona_info: PersonaInfo
-        :param send_msg: SendMsg
+        :param bot: Bot
+        :param event: MessageEvent
+        :param args: Message
+        :param debug_mode: bool
+        :return: Output Messages, Handler Result
         """
         if isinstance(package, CommandPackage):
             package_instance = package
@@ -820,9 +823,18 @@ class CommandCaller:
 
         :param args: args
         :param kwargs: kwargs
-        :return: CommandPackage
+        :return: a decorator that registers a command with args
         """
         def _decorator(package: Type[CommandPackage[T_Handler_Result]]) -> Type[CommandPackage[T_Handler_Result]]:
+            """
+            Register a command with args
+
+            WARNING: This is a decorator, so if you get this function, pass a command class into it.
+            It will pass the data to the registry through the closure.
+
+            :param package: CommandPackage
+            :return: CommandPackage
+            """
             nonlocal args, kwargs
             return cls._register(package, *args, **kwargs)
         return _decorator
