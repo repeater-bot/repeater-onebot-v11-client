@@ -17,7 +17,7 @@ from ..assist_func import (
 from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
 from ..network import HTTPCode
-from ..persona_info import PersonaInfo
+from ..persona_info import PersonaInfo, EnterType
 from ..namespace import MessageSource
 from ..text_render.text_render import TextRender
 from ..response.response import Response
@@ -2024,7 +2024,8 @@ class SendMsg:
         :param continue_handler: 是否继续运行当前处理流程
         """
         send_msg = self._prefix + message + self._suffix
-        if reply:
+
+        if not self._persona_info.enter_type == EnterType.External and reply:
             send_msg = self._reply + send_msg
 
         if self._send_hook is not None:
