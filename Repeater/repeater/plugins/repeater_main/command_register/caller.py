@@ -320,14 +320,14 @@ class CommandCaller:
         :param task: The task.
         :return: None
         """
-        future = await cls.wait_message_nowait(namespace)
+        future = await cls.message_future(namespace)
         result = await future
         return result
     
     @classmethod
-    async def wait_message_nowait(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
+    async def message_future(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
         """
-        Wait for the message.
+        Create a Future to wait for the message.
 
         :param package: The command package.
         :param task: The task.
