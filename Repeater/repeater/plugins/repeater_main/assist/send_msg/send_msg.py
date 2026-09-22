@@ -1367,7 +1367,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1379,7 +1379,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1390,7 +1390,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1439,6 +1439,9 @@ class SendMsg:
     
         message = Message()
 
+        if threshold is None:
+            threshold = self.length_score_threshold
+
         if length_score >= threshold:
             try:
                 image = await self.render_text_to_msg_segment(
@@ -1464,12 +1467,22 @@ class SendMsg:
             break_code = break_code,
             continue_handler = continue_handler
         )
+
+    @property
+    def length_score_threshold(self) -> float:
+        match self._persona_info.source:
+            case MessageSource.GROUP:
+                return storage_configs.text_length_score_configs.threshold.group
+            case MessageSource.PRIVATE:
+                return storage_configs.text_length_score_configs.threshold.private
+
+        raise ValueError(f"Invalid source: {self._persona_info.source}")
     
     @overload
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1480,7 +1493,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1490,7 +1503,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1515,6 +1528,10 @@ class SendMsg:
             text = message
         else:
             raise TypeError(f"message must be Message or str, but got {type(message)}")
+        
+        if threshold is None:
+            threshold = self.length_score_threshold
+        
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_render(
@@ -1536,7 +1553,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1547,7 +1564,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1557,7 +1574,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1582,6 +1599,10 @@ class SendMsg:
             text = prompt
         else:
             raise TypeError(f"message must be Message or str, but got {type(prompt)}")
+
+        if threshold is None:
+            threshold = self.length_score_threshold
+    
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_mixed_render(
