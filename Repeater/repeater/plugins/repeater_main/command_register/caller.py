@@ -58,13 +58,27 @@ class CommandCaller:
 
     listen_message_tasks: dict[Namespace, set[asyncio.Future[PersonaInfo]]] = {}
     listen_lock: asyncio.Lock = asyncio.Lock()
+    et_server_task: asyncio.Task | None = None
 
     @classmethod
     async def run_et_server(cls):
+        """Run the external trigger server."""
+        logger.info(
+            "Starting external trigger server..."
+        )
         await et_server.serve()
 
     @classmethod
     async def on_startup(cls):
+        """Run on startup."""
+        logger.info(
+            "startup..."
+        )
+
+        cls.et_server_task = asyncio.create_task(
+            cls.run_et_server()
+        )
+
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
             tasks.append(
@@ -76,6 +90,10 @@ class CommandCaller:
 
     @classmethod
     async def on_shutdown(cls):
+        """Run on shutdown."""
+        logger.info(
+            "shutdown..."
+        )
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
             tasks.append(
@@ -91,7 +109,13 @@ class CommandCaller:
 
     @classmethod
     async def on_bot_connect(cls, bot: Bot):
-
+        """
+        Run on bot connect.
+        """
+        logger.info(
+            "bot {bot_id} connect...",
+            bot_id = bot.self_id
+        )
         async def external_trigger_callback(handler: str, event: MessageEvent, args: Message):
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
@@ -127,6 +151,12 @@ class CommandCaller:
 
     @classmethod
     async def on_bot_disconnect(cls, bot: Bot):
+        """bot disconnect..."""
+        logger.info(
+            "bot {bot_id} disconnect...",
+            bot_id = bot.self_id
+        )
+
         register_external_trigger.unregister(bot.self_id)
 
         tasks: list[asyncio.Task] = []
