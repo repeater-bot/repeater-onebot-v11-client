@@ -36,6 +36,7 @@ from typing import (
     overload
 )
 from .speed_limiter import SpeedLimiter
+from .sending_buffer_unit import SendingBufferUnit
 from ...exceptions import (
     BreakHandler,
 )
@@ -217,7 +218,7 @@ class SendMsg:
         self._target_user: str | None = target_user
         self._send_hook: SEND_HOOK | None = send_hook
         
-        self._buffer: asyncio.Queue[tuple[str | Message | MessageSegment, tuple[Any, ...], dict[str, Any], int]] = asyncio.Queue()
+        self._buffer: asyncio.Queue[SendingBufferUnit] = asyncio.Queue()
         self.sending_target: SendingTarget = send_target
         match self.sending_target:
             case SendingTarget.AUTO:
@@ -399,14 +400,14 @@ class SendMsg:
             raise TypeError(f"matcher must be Matcher or None, not {type(matcher).__name__}")
     
     @property
-    def buffer(self) -> asyncio.Queue[tuple[str | Message | MessageSegment, tuple[Any, ...], dict[str, Any], int]]:
+    def buffer(self) -> asyncio.Queue[SendingBufferUnit]:
         """
         当前消息的缓冲区
         """
         return self._buffer
     
     @buffer.setter
-    def buffer(self, buffer: asyncio.Queue):
+    def buffer(self, buffer: asyncio.Queue[SendingBufferUnit]):
         """
         设置当前消息的缓冲区
         """
@@ -2036,7 +2037,10 @@ class SendMsg:
         
         try:
             await self._send_to_target(
-                message = send_msg
+                message = send_msg,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
             )
         except Exception as error:
             logger.error(
@@ -2050,6 +2054,9 @@ class SendMsg:
     async def _send_to_target(
         self,
         message: str | Message | MessageSegment,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False,
         *args,
         **kwargs
     ) -> None:
@@ -2066,6 +2073,9 @@ class SendMsg:
                 )
                 await self._send_to_queue(
                     message,
+                    reply = reply,
+                    break_code = break_code,
+                    continue_handler = continue_handler,
                     *args,
                     **kwargs
                 )
@@ -2077,6 +2087,9 @@ class SendMsg:
                 await self.message_speed_limiter.submit(
                     task = self._send_to_matcher(
                         message,
+                        reply = reply,
+                        break_code = break_code,
+                        continue_handler = continue_handler,
                         *args,
                         **kwargs
                     )
@@ -2089,6 +2102,9 @@ class SendMsg:
                 await self.message_speed_limiter.submit(
                     task = self._send_to_api(
                         message,
+                        reply = reply,
+                        break_code = break_code,
+                        continue_handler = continue_handler,
                         *args,
                         **kwargs
                     )
@@ -2103,6 +2119,9 @@ class SendMsg:
     async def _send_to_queue(
         self,
         message: str | Message | MessageSegment,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False,
         *args,
         **kwargs
     ) -> None:
@@ -2111,14 +2130,27 @@ class SendMsg:
 
         :param message: 消息对象
         """
-        now = time.perf_counter_ns()
+        now = time.time_ns()
+        monotonic_now = time.perf_counter_ns()
         await self._buffer.put(
-            (message, args, kwargs, now)
+            SendingBufferUnit(
+                message = message,
+                args = args,
+                kwargs = kwargs,
+                time = now,
+                monotonic_time = monotonic_now,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler,
+            )
         )
     
     async def _send_to_matcher(
         self,
         message: str | Message | MessageSegment,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False,
         *args,
         **kwargs
     ) -> None:
@@ -2137,6 +2169,9 @@ class SendMsg:
     async def _send_to_api(
         self,
         message: str | Message | MessageSegment,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False,
         *args,
         **kwargs
     ) -> None:
