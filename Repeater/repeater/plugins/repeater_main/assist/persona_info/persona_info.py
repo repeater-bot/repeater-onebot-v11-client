@@ -28,7 +28,8 @@ from ..assist_func import (
     get_forward_msgs,
     get_message_event,
     generates_text_from_messages_list,
-    get_reply_chain
+    get_reply_chain,
+    make_empty_message_event
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -163,7 +164,7 @@ class PersonaInfo:
         return persona_info
     
     @classmethod
-    def from_horizontal(cls, persona_info: PersonaInfo) -> PersonaInfo:
+    def from_horizontal(cls, persona_info: PersonaInfo, task_id: uuid.UUID | None = None) -> PersonaInfo:
         """
         从横向模式进入
 
@@ -173,8 +174,24 @@ class PersonaInfo:
             bot = persona_info.bot,
             event = persona_info.event,
             args = persona_info.args,
-            task_id = persona_info.task_id,
+            task_id = task_id or persona_info.task_id,
             enter_type = EnterType.Horizontal
+        )
+        return persona_info
+
+    @classmethod
+    def from_external(cls, bot: Bot, event: MessageEvent, args: Message | None = None, task_id: uuid.UUID | None = None) -> PersonaInfo:
+        """
+        从外部调用进入
+
+        :param persona_info: 来自外部调用的 PersonaInfo
+        """
+        persona_info = cls(
+            bot = bot,
+            event = event,
+            args = args,
+            task_id = task_id,
+            enter_type = EnterType.External
         )
         return persona_info
     
@@ -755,6 +772,13 @@ class PersonaInfo:
             cite = cite,
             excluded_tags = excluded_tags
         )
+
+    @property
+    def empty_message_event(self) -> MessageEvent:
+        """
+        空消息事件
+        """
+        return make_empty_message_event()
     
     @property
     def plaintext_message(self) -> str:

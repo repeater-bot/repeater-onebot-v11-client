@@ -17,7 +17,7 @@ from ..assist_func import (
 from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
 from ..network import HTTPCode
-from ..persona_info import PersonaInfo
+from ..persona_info import PersonaInfo, EnterType
 from ..namespace import MessageSource
 from ..text_render.text_render import TextRender
 from ..response.response import Response
@@ -27,6 +27,7 @@ from typing import (
     Iterable,
     Any,
     Callable,
+    Awaitable,
     NoReturn,
     TypeVar,
     Type,
@@ -50,6 +51,8 @@ from .text_tender_exceptions import (
 logger = base_logger.bind(module = "SendMsg")
 
 T_RESPONSE = TypeVar("T_RESPONSE")
+
+SEND_HOOK = Callable[[Message, SendingTarget], Awaitable[None]]
 
 class SendMsg:
     r"""
@@ -171,7 +174,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER
+            send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER,
+            send_hook: SEND_HOOK | None = None,
         ): ...
     
     @overload
@@ -185,7 +189,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
         ): ...
 
     def __init__(
@@ -198,7 +203,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
         ):
         self._component: str = component
         self._persona_info: PersonaInfo = persona_info
@@ -209,6 +215,7 @@ class SendMsg:
         self._matcher: Type[Matcher] | None = matcher
         self._target_group: str | None = target_group
         self._target_user: str | None = target_user
+        self._send_hook: SEND_HOOK | None = send_hook
         
         self._buffer: asyncio.Queue[tuple[str | Message | MessageSegment, tuple[Any, ...], dict[str, Any], int]] = asyncio.Queue()
         self.sending_target: SendingTarget = send_target
@@ -232,7 +239,8 @@ class SendMsg:
             ("suffix", self._suffix),
             ("target_group", self._target_group),
             ("target_user", self._target_user),
-            ("sending_target", self.sending_target)
+            ("sending_target", self.sending_target),
+            ("send_hook", self._send_hook)
         ]
         return f"{self.__class__.__name__}({', '.join([f'{k}={v!r}' for k, v in args_map if v is not None])})"
     
@@ -246,7 +254,8 @@ class SendMsg:
             suffix: Message | None | NoGive = nogive,
             target_group: str | None | NoGive = nogive,
             target_user: str | None | NoGive = nogive,
-            send_target: SendingTarget | NoGive = nogive
+            send_target: SendingTarget | NoGive = nogive,
+            send_hook: SEND_HOOK | None | NoGive = nogive
         ) -> "SendMsg":
         component = component if not is_no_give(component) else self._component
         persona_info = persona_info if not is_no_give(persona_info) else self._persona_info.copy()
@@ -257,6 +266,7 @@ class SendMsg:
         send_target = send_target if not is_no_give(send_target) else self.sending_target
         target_group = target_group if not is_no_give(target_group) else self._target_group
         target_user = target_user if not is_no_give(target_user) else self._target_user
+        send_hook = send_hook if not is_no_give(send_hook) else self._send_hook
 
         instance = self.__class__(
             component = component,
@@ -268,6 +278,7 @@ class SendMsg:
             target_group = target_group,
             target_user = target_user,
             send_target = send_target,
+            send_hook = send_hook
         )
         
         return instance
@@ -1356,7 +1367,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1368,7 +1379,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1379,7 +1390,7 @@ class SendMsg:
     async def send_error_render(
             self,
             *errors: str | Message | Exception | Response,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             get_error_response: bool = False,
             document_bottom_comment: str = "",
             reply: bool = True,
@@ -1428,6 +1439,9 @@ class SendMsg:
     
         message = Message()
 
+        if threshold is None:
+            threshold = self.length_score_threshold
+
         if length_score >= threshold:
             try:
                 image = await self.render_text_to_msg_segment(
@@ -1453,12 +1467,22 @@ class SendMsg:
             break_code = break_code,
             continue_handler = continue_handler
         )
+
+    @property
+    def length_score_threshold(self) -> float:
+        match self._persona_info.source:
+            case MessageSource.GROUP:
+                return storage_configs.text_length_score_configs.threshold.group
+            case MessageSource.PRIVATE:
+                return storage_configs.text_length_score_configs.threshold.private
+
+        raise ValueError(f"Invalid source: {self._persona_info.source}")
     
     @overload
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1469,7 +1493,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1479,7 +1503,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comment: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1504,6 +1528,10 @@ class SendMsg:
             text = message
         else:
             raise TypeError(f"message must be Message or str, but got {type(message)}")
+        
+        if threshold is None:
+            threshold = self.length_score_threshold
+        
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_render(
@@ -1525,7 +1553,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1536,7 +1564,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1546,7 +1574,7 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
-            threshold: float = 1.0,
+            threshold: float | None = None,
             document_bottom_comments: str = "",
             reply: bool = True,
             break_code: int = 0,
@@ -1571,6 +1599,10 @@ class SendMsg:
             text = prompt
         else:
             raise TypeError(f"message must be Message or str, but got {type(prompt)}")
+
+        if threshold is None:
+            threshold = self.length_score_threshold
+    
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_mixed_render(
@@ -1992,8 +2024,16 @@ class SendMsg:
         :param continue_handler: 是否继续运行当前处理流程
         """
         send_msg = self._prefix + message + self._suffix
-        if reply:
+
+        if self._persona_info.enter_type != EnterType.External and reply:
             send_msg = self._reply + send_msg
+
+        if self._send_hook is not None:
+            await self._send_hook(
+                send_msg,
+                self.sending_target
+            )
+        
         try:
             await self._send_to_target(
                 message = send_msg

@@ -3,11 +3,9 @@ import orjson
 from ...logger import logger as base_logger
 
 from ...client_configs import *
-from ...exit_register import ExitRegister
 from ._request_log_object import RequestLog
 from ...assist import BaseClient
 
-exit_register = ExitRegister()
 logger = base_logger.bind(module = "Config.Core")
 
 class RequestLogClient(BaseClient):

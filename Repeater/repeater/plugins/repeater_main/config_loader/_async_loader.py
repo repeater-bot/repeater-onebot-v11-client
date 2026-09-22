@@ -24,7 +24,7 @@ class AsyncLoader(Generic[T_MODEL]):
         return self.get_storage_path().exists()
     
     async def load(self, unexist_create: bool = False, write_on_failure: bool = False) -> T_MODEL:
-        if unexist_create and not self._path.exists():
+        if unexist_create and not self.exists():
             config = self._model()
             logger.warning(
                 "Config {config_file} is not found, creating new one",

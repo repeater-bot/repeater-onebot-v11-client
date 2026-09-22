@@ -9,10 +9,14 @@ from .assist_func import (
     get_reply_chain,
     text_length_score,
     str_to_bool,
+    send_file,
+    send_group_file,
+    send_private_file,
     format_carry_duration,
     parse_delimited_string,
     escape_string,
     text_content_cutter,
+    make_empty_message_event
 )
 from .persona_info import (
     EnterType,
@@ -35,6 +39,7 @@ from .text_render import (
 from .send_msg import (
     SpeedLimiter,
     SendMsg,
+    SEND_HOOK,
     SendingTarget
 )
 from .chattts import (
@@ -91,9 +96,14 @@ __all__ = [
     "get_reply_chain",
     "text_length_score",
     "str_to_bool",
+    "send_file",
+    "send_group_file",
+    "send_private_file",
     "format_carry_duration",
     "parse_delimited_string",
     "escape_string",
+    "text_content_cutter",
+    "make_empty_message_event",
 
     "EnterType",
     "PersonaInfo",
@@ -111,6 +121,7 @@ __all__ = [
 
     "SpeedLimiter",
     "SendMsg",
+    "SEND_HOOK",
     "SendingTarget",
     
     "ChatTTSAPI",

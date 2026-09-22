@@ -7,14 +7,12 @@ from typing import (
 
 from ...client_configs import *
 from ...assist import Response, BaseClient
-from ...exit_register import ExitRegister
 from ._models import (
     ModelsResponse,
     PingProviderResponse,
     RefreshResponse
 )
 
-exit_register = ExitRegister()
 logger = base_logger.bind(module = "Config.Core")
 
 class ModelInfoClient(BaseClient):
