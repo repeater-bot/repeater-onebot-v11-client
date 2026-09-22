@@ -27,6 +27,7 @@ from typing import (
     Iterable,
     Any,
     Callable,
+    Awaitable,
     NoReturn,
     TypeVar,
     Type,
@@ -50,6 +51,8 @@ from .text_tender_exceptions import (
 logger = base_logger.bind(module = "SendMsg")
 
 T_RESPONSE = TypeVar("T_RESPONSE")
+
+SEND_HOOK = Callable[[Message, SendingTarget], Awaitable[None]]
 
 class SendMsg:
     r"""
@@ -171,7 +174,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER
+            send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER,
+            send_hook: SEND_HOOK | None = None,
         ): ...
     
     @overload
@@ -185,7 +189,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
         ): ...
 
     def __init__(
@@ -198,7 +203,8 @@ class SendMsg:
             suffix: Message | None = None,
             target_group: str | None = None,
             target_user: str | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
         ):
         self._component: str = component
         self._persona_info: PersonaInfo = persona_info
@@ -209,6 +215,7 @@ class SendMsg:
         self._matcher: Type[Matcher] | None = matcher
         self._target_group: str | None = target_group
         self._target_user: str | None = target_user
+        self._send_hook: SEND_HOOK | None = send_hook
         
         self._buffer: asyncio.Queue[tuple[str | Message | MessageSegment, tuple[Any, ...], dict[str, Any], int]] = asyncio.Queue()
         self.sending_target: SendingTarget = send_target
@@ -232,7 +239,8 @@ class SendMsg:
             ("suffix", self._suffix),
             ("target_group", self._target_group),
             ("target_user", self._target_user),
-            ("sending_target", self.sending_target)
+            ("sending_target", self.sending_target),
+            ("send_hook", self._send_hook)
         ]
         return f"{self.__class__.__name__}({', '.join([f'{k}={v!r}' for k, v in args_map if v is not None])})"
     
@@ -246,7 +254,8 @@ class SendMsg:
             suffix: Message | None | NoGive = nogive,
             target_group: str | None | NoGive = nogive,
             target_user: str | None | NoGive = nogive,
-            send_target: SendingTarget | NoGive = nogive
+            send_target: SendingTarget | NoGive = nogive,
+            send_hook: SEND_HOOK | None | NoGive = nogive
         ) -> "SendMsg":
         component = component if not is_no_give(component) else self._component
         persona_info = persona_info if not is_no_give(persona_info) else self._persona_info.copy()
@@ -257,6 +266,7 @@ class SendMsg:
         send_target = send_target if not is_no_give(send_target) else self.sending_target
         target_group = target_group if not is_no_give(target_group) else self._target_group
         target_user = target_user if not is_no_give(target_user) else self._target_user
+        send_hook = send_hook if not is_no_give(send_hook) else self._send_hook
 
         instance = self.__class__(
             component = component,
@@ -268,6 +278,7 @@ class SendMsg:
             target_group = target_group,
             target_user = target_user,
             send_target = send_target,
+            send_hook = send_hook
         )
         
         return instance
@@ -1994,6 +2005,13 @@ class SendMsg:
         send_msg = self._prefix + message + self._suffix
         if reply:
             send_msg = self._reply + send_msg
+
+        if self._send_hook is not None:
+            await self._send_hook(
+                send_msg,
+                self.sending_target
+            )
+        
         try:
             await self._send_to_target(
                 message = send_msg
