@@ -70,7 +70,9 @@ class CommandCaller:
 
     @classmethod
     async def on_startup(cls):
-        """Run on startup."""
+        """
+        Run on startup.
+        """
         logger.info(
             "startup..."
         )
@@ -95,7 +97,9 @@ class CommandCaller:
 
     @classmethod
     async def on_shutdown(cls):
-        """Run on shutdown."""
+        """
+        Run on shutdown.
+        """
         logger.info(
             "shutdown..."
         )
@@ -116,6 +120,8 @@ class CommandCaller:
     async def on_bot_connect(cls, bot: Bot):
         """
         Run on bot connect.
+
+        :param bot: bot instance
         """
         logger.info(
             "bot {bot_id} connect...",
@@ -125,7 +131,7 @@ class CommandCaller:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
-            messages, result = await cls._external_enter(
+            messages, result = await cls.external_enter(
                 package = package,
                 bot = bot,
                 event = event,
@@ -156,7 +162,11 @@ class CommandCaller:
 
     @classmethod
     async def on_bot_disconnect(cls, bot: Bot):
-        """bot disconnect..."""
+        """
+        bot disconnect.
+
+        :param bot: bot instance
+        """
         logger.info(
             "bot {bot_id} disconnect...",
             bot_id = bot.self_id
@@ -175,22 +185,50 @@ class CommandCaller:
 
     @staticmethod
     def cmd_prefixs() -> set[str]:
+        """
+        Get command prefixs.
+
+        :return: command prefixs
+        """
         return get_driver().config.command_start
 
     @staticmethod
     def delimiters() -> set[str]:
+        """
+        Get command delimiters.
+
+        :return: command delimiters
+        """
         return get_driver().config.command_sep
     
     @classmethod
     def match_trigger(cls, trigger: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
+        """
+        Match trigger to command package.
+
+        :param trigger: trigger
+        :return: command package
+        """
         return cls.triggers[trigger]
 
     @classmethod
     def match_component(cls, component: str) -> Type[CommandPackage[Any]]:
+        """
+        Match component to command package.
+
+        :param component: component
+        :return: command package
+        """
         return cls.components[component]
 
     @classmethod
     def cancel(cls, namespace: Namespace, task: uuid.UUID | RunningPackage):
+        """
+        Cancel a task.
+
+        :param namespace: namespace
+        :param task: task
+        """
         if isinstance(task, uuid.UUID):
             task_id = task
         elif isinstance(task, RunningPackage):
@@ -205,22 +243,50 @@ class CommandCaller:
 
     @classmethod
     async def has_running_task(cls, namespace: Namespace, task: uuid.UUID) -> bool:
+        """
+        Check if a task is running.
+
+        :param namespace: namespace
+        :param task: task
+        :return: True if task is running, False otherwise
+        """
         async with cls.running_lock:
             return task in cls.running_map.get(namespace, set())
 
     @classmethod
     async def get_runnings(cls, namespace: Namespace) -> set[RunningPackage]:
+        """
+        Get all running tasks.
+
+        :param namespace: namespace
+        :return: set of running tasks
+        """
         async with cls.running_lock:
             runnings = cls.running_map.get(namespace, set())
             return {cls.runnings[i] for i in runnings}
     
     @classmethod
     async def get_user_runnings(cls, namespace: Namespace) -> list[RunningPackage]:
+        """
+        Get all running tasks for a user.
+
+        :param namespace: namespace
+        :return: list of running tasks
+        """
         async with cls.running_lock:
             return [cls.runnings[uuid] for uuid in cls.running_map.get(namespace, set())]
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
+        """
+        Match a trigger or component to a command package.
+
+        Query triggers if an initiator is used.
+        If not, the component is queried.
+
+        :param string: trigger or component
+        :return: command package
+        """
         if isinstance(string, str):
             package: type[CommandPackage] | None = None
             try:
@@ -316,22 +382,20 @@ class CommandCaller:
         """
         Wait for the message.
 
-        :param package: The command package.
-        :param task: The task.
-        :return: None
+        :param namespace: The target of listening.
+        :return: `PersonaInfo` object.
         """
-        future = await cls.wait_message_nowait(namespace)
+        future = await cls.message_future(namespace)
         result = await future
         return result
     
     @classmethod
-    async def wait_message_nowait(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
+    async def message_future(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
         """
-        Wait for the message.
+        Create a Future to wait for the message.
 
-        :param package: The command package.
-        :param task: The task.
-        :return: None
+        :param namespace: The target of listening.
+        :return: The `Future` object.
         """
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         future: asyncio.Future[PersonaInfo] = loop.create_future()
@@ -349,9 +413,8 @@ class CommandCaller:
         """
         Cancel the wait message.
 
-        :param package: The command package.
-        :param task: The task.
-        :return: None
+        :param namespace: The target of listening.
+        :return: Whether the cancel is successful.
         """
         async with cls.listen_lock:
             logger.info(
@@ -443,7 +506,6 @@ class CommandCaller:
         :param package: The command package.
         :param persona_info: The persona info.
         :param send_msg: The send message function.
-        :param created: The running package created future.
         :param debug_mode: The debug mode.
         :return: The result of the message handler.
         """
@@ -493,7 +555,6 @@ class CommandCaller:
         Enter the message handler.
 
         :param task_id: The task id.
-        :param created: The running package created future.
         :param package: The command package.
         :param persona_info: The persona info.
         :param send_msg: The send message function.
@@ -646,6 +707,8 @@ class CommandCaller:
         :param package: CommandPackage
         :param persona_info: PersonaInfo
         :param send_msg: SendMsg
+        :param debug_mode: DebugMode
+        :return: RunningPackage
         """
         if isinstance(package, CommandPackage):
             package_instance = package
@@ -671,7 +734,7 @@ class CommandCaller:
         return await created
 
     @classmethod
-    async def _external_enter(
+    async def external_enter(
         cls,
         package: Type[CommandPackage[T_Handler_Result]] | CommandPackage[T_Handler_Result],
         bot: Bot,
@@ -683,8 +746,11 @@ class CommandCaller:
         Horizontal call handler and waiting for the running package to created.
 
         :param package: CommandPackage
-        :param persona_info: PersonaInfo
-        :param send_msg: SendMsg
+        :param bot: Bot
+        :param event: MessageEvent
+        :param args: Message
+        :param debug_mode: bool
+        :return: Output Messages, Handler Result
         """
         if isinstance(package, CommandPackage):
             package_instance = package
@@ -757,9 +823,18 @@ class CommandCaller:
 
         :param args: args
         :param kwargs: kwargs
-        :return: CommandPackage
+        :return: a decorator that registers a command with args
         """
         def _decorator(package: Type[CommandPackage[T_Handler_Result]]) -> Type[CommandPackage[T_Handler_Result]]:
+            """
+            Register a command with args
+
+            WARNING: This is a decorator, so if you get this function, pass a command class into it.
+            It will pass the data to the registry through the closure.
+
+            :param package: CommandPackage
+            :return: CommandPackage
+            """
             nonlocal args, kwargs
             return cls._register(package, *args, **kwargs)
         return _decorator
@@ -819,6 +894,14 @@ class CommandCaller:
             ]
         ]
     ]:
+        """
+        Make a command package instance
+
+        :param package: Package class
+        :param args: Package class initialization parameters
+        :param kwargs: Package class initialization parameters
+        :return: package_instance, matcher, handler
+        """
         package.on_before_instantiate()
 
         package_raw_new = package.__new__
@@ -874,6 +957,14 @@ class CommandCaller:
             ]
         ]
     ) -> None:
+        """
+        Register a package instance
+
+        :param package: Package class
+        :param package_instance: Package instance
+        :param matcher: Matcher class
+        :param handler: Handler function
+        """
         matcher.append_handler(handler)
         cls._reg_package(
             package = package,
@@ -890,6 +981,12 @@ class CommandCaller:
         CommandPackage[Any],
         type[Matcher]
     ]:
+        """
+        Unregister a package instance
+
+        :param package: Package class
+        :return: Package instance and Matcher class
+        """
         package_instance: CommandPackage[Any] = cls.commands.pop(package)
         main_trigger: Type[CommandPackage[Any]] = cls.triggers.pop(package.cmd)
         types: list[Type[CommandPackage[Any]]] = cls.types.pop(package_instance.cmd_type)
@@ -919,6 +1016,10 @@ class CommandCaller:
     ) -> None:
         """
         Register package to resource pool
+
+        :param package: package class
+        :param package_instance: package instance
+        :param matcher: matcher class
         """
         if package in cls.commands:
             package_instance.on_duplicate_handler()
@@ -974,6 +1075,9 @@ class CommandCaller:
     def _reg_cmd_types(cls, cmd_type: CmdTypes, package: Type[CommandPackage[T_Handler_Result]]) -> None:
         """
         Register package to types pool
+
+        :param cmd_type: Command type
+        :param package: Package
         """
         types_list: list[Type[CommandPackage[Any]]] = cls.types.setdefault(cmd_type, [])
         types_list.append(package)
@@ -982,6 +1086,9 @@ class CommandCaller:
     def _reg_triggers(cls, trigger: str | tuple[str, ...], package: Type[CommandPackage[T_Handler_Result]]) -> None:
         """
         Register package to triggers pool
+
+        :param trigger: Trigger
+        :param package: Package
         """
         if trigger in cls.triggers:
             package.on_duplicate_trigger(trigger)
@@ -1126,7 +1233,9 @@ class CommandCaller:
     @classmethod
     async def report_message(cls, persona_info: PersonaInfo):
         """
-        Report a new message for processing.
+        Submits a new message to the listening system.
+        
+        :param persona_info: The `PersonaInfo` object of the message
         """
         namespace = persona_info.namespace
         if namespace in cls.listen_message_tasks:
