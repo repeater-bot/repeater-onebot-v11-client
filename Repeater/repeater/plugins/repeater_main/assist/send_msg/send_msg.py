@@ -120,8 +120,8 @@ class SendMsg:
         >>> # 从缓冲区读取内容
         >>> text_buffer: list[str] = []
         >>> while copyed_send_msg.buffer.qsize() > 0:
-        ...     text = await copyed_send_msg.buffer.get()
-        ...     text_buffer.append(text)
+        ...     result = await copyed_send_msg.buffer.get()
+        ...     text_buffer.append(result.message)
         >>> # 发送一个消息
         >>> await send_msg.send_prompt(
         ...     "\n".join(text_buffer),
