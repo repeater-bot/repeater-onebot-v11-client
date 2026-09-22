@@ -7,11 +7,9 @@ from typing import (
 from ....assist import Response, PersonaInfo, http_transport
 # 服务端配置
 from ....client_configs import *
-from ....exit_register import ExitRegister
 
 from .._base_user_data_client import UserDataClient
 
-exit_register = ExitRegister()
 logger = base_logger.bind(module = "Config.Core")
 
 class ConfigClient(UserDataClient):
