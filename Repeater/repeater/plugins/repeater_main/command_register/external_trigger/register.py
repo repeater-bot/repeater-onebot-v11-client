@@ -1,7 +1,16 @@
 from typing import Callable, Awaitable
 from nonebot.adapters.onebot.v11 import MessageEvent, Message
 
-CALLABLE_TYPE = Callable[[str, MessageEvent, Message], Awaitable[tuple[list[Message], int]]]
+CALLABLE_TYPE = Callable[
+    [
+        str,
+        MessageEvent,
+        Message
+    ],
+    Awaitable[
+        tuple[list[Message], int]
+    ]
+]
 
 class Register:
     def __init__(self):
