@@ -21,12 +21,15 @@ async def external_trigger_call(request: ExternalTriggerRequest):
             detail = "Bot is not registered"
         )
 
+    message = Message(request.message)
     args = Message(request.args)
     namespace = Namespace.from_str(request.namespace)
 
     event = make_message_event(
         self_id = int(request.bot_id),
         namespace = namespace,
+        message = message,
+        message_id = request.message_id,
     
         font = request.font,
         nickname = request.nickname,

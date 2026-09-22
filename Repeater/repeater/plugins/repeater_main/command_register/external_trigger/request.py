@@ -7,8 +7,10 @@ class ExternalTriggerRequest(BaseModel):
     bot_id: str
     handler: str
     namespace: str
+    message: str
     args: str | None = None
-    
+    message_id: int = 0
+
     font: int = 0
     nickname: str | None = None
     sex: str | None = None
