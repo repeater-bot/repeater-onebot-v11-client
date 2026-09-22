@@ -163,7 +163,7 @@ class PersonaInfo:
         return persona_info
     
     @classmethod
-    def from_horizontal(cls, persona_info: PersonaInfo) -> PersonaInfo:
+    def from_horizontal(cls, persona_info: PersonaInfo, task_id: uuid.UUID | None = None) -> PersonaInfo:
         """
         从横向模式进入
 
@@ -173,8 +173,24 @@ class PersonaInfo:
             bot = persona_info.bot,
             event = persona_info.event,
             args = persona_info.args,
-            task_id = persona_info.task_id,
+            task_id = task_id or persona_info.task_id,
             enter_type = EnterType.Horizontal
+        )
+        return persona_info
+
+    @classmethod
+    def from_external(cls, bot: Bot, event: MessageEvent, args: Message | None = None, task_id: uuid.UUID | None = None) -> PersonaInfo:
+        """
+        从外部调用进入
+
+        :param persona_info: 来自外部调用的 PersonaInfo
+        """
+        persona_info = cls(
+            bot = bot,
+            event = event,
+            args = args,
+            task_id = task_id,
+            enter_type = EnterType.External
         )
         return persona_info
     

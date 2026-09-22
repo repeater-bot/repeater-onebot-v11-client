@@ -7,3 +7,4 @@ class EnterType(Enum):
     Command = auto()
     Message = auto()
     Horizontal = auto()
+    External = auto()
