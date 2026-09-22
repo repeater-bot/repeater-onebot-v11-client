@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from nonebot.adapters.onebot.v11 import MessageEvent
+from .event import MessageEventModel
 
 class ExternalTriggerRequest(BaseModel):
     """
@@ -7,5 +7,5 @@ class ExternalTriggerRequest(BaseModel):
     """
     bot_id: str
     handler: str
-    event_data: MessageEvent
+    event_data: MessageEventModel
     args: str | None = None

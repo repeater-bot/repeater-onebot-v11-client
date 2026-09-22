@@ -20,7 +20,7 @@ async def external_trigger_call(request: ExternalTriggerRequest):
 
     args = Message(request.args)
 
-    results, retcode = await callback(request.handler, request.event_data, args)
+    results, retcode = await callback(request.handler, request.event_data.to_message_event(), args)
 
     return ExternalTriggerResponse(
         messages = [str(result) for result in results],
