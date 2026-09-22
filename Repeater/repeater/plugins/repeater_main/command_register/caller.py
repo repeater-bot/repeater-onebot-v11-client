@@ -316,7 +316,7 @@ class CommandCaller:
         """
         Wait for the message.
 
-        :param package: The command package.
+        :param namespace: The target of listening.
         :return: `PersonaInfo` object.
         """
         future = await cls.message_future(namespace)
@@ -328,7 +328,7 @@ class CommandCaller:
         """
         Create a Future to wait for the message.
 
-        :param package: The command package.
+        :param namespace: The target of listening.
         :return: The `Future` object.
         """
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
