@@ -28,7 +28,8 @@ from ..assist_func import (
     get_forward_msgs,
     get_message_event,
     generates_text_from_messages_list,
-    get_reply_chain
+    get_reply_chain,
+    make_empty_message_event
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -771,6 +772,13 @@ class PersonaInfo:
             cite = cite,
             excluded_tags = excluded_tags
         )
+
+    @property
+    def empty_message_event(self) -> MessageEvent:
+        """
+        空消息事件
+        """
+        return make_empty_message_event()
     
     @property
     def plaintext_message(self) -> str:
