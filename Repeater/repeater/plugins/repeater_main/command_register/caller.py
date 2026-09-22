@@ -203,7 +203,20 @@ class CommandCaller:
         :param task: The task.
         :return: None
         """
-        loop = asyncio.get_event_loop()
+        future = await cls.wait_message_nowait(namespace)
+        result = await future
+        return result
+    
+    @classmethod
+    async def wait_message_nowait(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
+        """
+        Wait for the message.
+
+        :param package: The command package.
+        :param task: The task.
+        :return: None
+        """
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         future: asyncio.Future[PersonaInfo] = loop.create_future()
         async with cls.listen_lock:
             logger.info(
@@ -212,9 +225,7 @@ class CommandCaller:
                 future = repr(future),
             )
             cls.listen_message_tasks.setdefault(namespace, set()).add(future)
-
-        result = await future
-        return result
+        return future
 
     @classmethod
     async def cancel_wait_message(cls, namespace: Namespace) -> bool:
