@@ -114,11 +114,12 @@ class Cascade(CommandPackage):
             
             current_result = Message()
             while copyed_send_msg.buffer.qsize() > 0:
-                buffer_result, args, kwargs, send_time = await copyed_send_msg.buffer.get()
-                if isinstance(buffer_result, Message):
-                    current_result.extend(buffer_result)
+                buffer_result = await copyed_send_msg.buffer.get()
+                new_message = buffer_result.message
+                if isinstance(new_message, Message):
+                    current_result.extend(new_message)
                 else:
-                    current_result.append(buffer_result)
+                    current_result.append(new_message)
             
             last_result = info.copy(args = current_result)
         
