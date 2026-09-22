@@ -79,6 +79,10 @@ class CommandCaller:
             cls.et_server_task = asyncio.create_task(
                 cls.run_et_server()
             )
+        else:
+            logger.info(
+                "External trigger server is disabled."
+            )
 
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
