@@ -1,7 +1,9 @@
 import time
 import asyncio
-from typing import Awaitable
+from typing import Awaitable, TypeVar
 from nonebot import logger
+
+T = TypeVar("T")
 
 class SpeedLimiter:
     def __init__(
@@ -12,7 +14,7 @@ class SpeedLimiter:
         self.last_submit_time = time.monotonic_ns()
         self.lock = asyncio.Lock()
     
-    async def submit(self, task: Awaitable) -> None:
+    async def submit(self, task: Awaitable[T]) -> T:
         async with self.lock:
             if self.limit_speed_per_minute is not None:
                 current_time = time.monotonic_ns()
@@ -26,5 +28,6 @@ class SpeedLimiter:
                         time_dalta = time_dalta
                     )
                     await asyncio.sleep(time_dalta)
-            await task
+            result = await task
             self.last_submit_time = time.monotonic_ns()
+            return result
