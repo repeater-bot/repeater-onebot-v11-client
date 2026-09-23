@@ -28,9 +28,8 @@ class SendRenderPromptFile(CommandPackage):
     ```
     """
 
-
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         user_configs = await persona_info.get_user_configs()
         prompt_client = PromptClient(persona_info, user_configs)
-        file_url = prompt_client.get_prompt_url()
-        await send_msg.send_file(file_url, f"{persona_info.namespace_str}_User_Prompt.md")
+        file_url = prompt_client.render_prompt_file_url()
+        await send_msg.send_file(file_url, f"{persona_info.namespace_str}_Rendered_Prompt.md")
