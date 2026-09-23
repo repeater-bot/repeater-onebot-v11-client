@@ -2242,7 +2242,7 @@ class SendMsg:
 
         return threshold
     
-    async def _send_file(self, url: str, file_name: str) -> None:
+    async def _send_file(self, url: str, file_name: str) -> str | None:
         """
         发送文件
 
@@ -2251,14 +2251,14 @@ class SendMsg:
         """
         try:
             if self._persona_info.source == MessageSource.GROUP and self._persona_info.group_id is not None:
-                await send_group_file(
+                return await send_group_file(
                     bot = self._persona_info.cached_api,
                     group_id = self._persona_info.group_id,
                     url = url,
                     file_name = file_name
                 )
             elif self._persona_info.source == MessageSource.PRIVATE:
-                await send_private_file(
+                return await send_private_file(
                     bot = self._persona_info.cached_api,
                     user_id = self._persona_info.user_id,
                     url = url,
@@ -2281,12 +2281,29 @@ class SendMsg:
         :param url: 文件URL
         :param file_name: 文件名
         """
-        await self.file_speed_limiter.submit(
+        file_id = await self.file_speed_limiter.submit(
             self._send_file(
                 url = url,
                 file_name = file_name
             ),
         )
+
+        if self._send_hook is not None:
+            await self._send_hook(
+                Message(
+                    MessageSegment(
+                        "file",
+                        {
+                            "url": url,
+                            "file_id": file_id,
+                            "name": file_name,
+                            "id": file_id,
+                            "url": url
+                        }
+                    )
+                ),
+                self.sending_target
+            )
         if continue_handler:
             raise BreakHandler(break_code)
     
