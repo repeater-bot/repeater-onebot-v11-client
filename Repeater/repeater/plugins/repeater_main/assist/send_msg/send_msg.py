@@ -2294,11 +2294,10 @@ class SendMsg:
                     MessageSegment(
                         "file",
                         {
-                            "url": url,
-                            "file_id": file_id,
-                            "name": file_name,
                             "id": file_id,
-                            "url": url
+                            "url": url,
+                            "name": file_name,
+                            "file_id": file_id
                         }
                     )
                 ),
