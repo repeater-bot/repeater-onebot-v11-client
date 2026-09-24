@@ -2307,15 +2307,13 @@ class SendMsg:
                 ),
                 self.sending_target
             )
-        if continue_handler:
-            raise BreakHandler(break_code)
+        if not continue_handler:
+            self.break_handler(break_code)
     
     async def _send_poke(
             self,
             group_id: str | None = None,
-            user_id: str | None = None,
-            break_code: int = 0,
-            continue_handler: bool = False
+            user_id: str | None = None
         ) -> None:
         """
         发送戳一戳
@@ -2333,13 +2331,13 @@ class SendMsg:
                 )
             case _:
                 await self.send_error("Unsupported message source.")
-        if continue_handler:
-            raise BreakHandler(break_code)
     
     async def send_poke(
             self,
             group_id: str | None = None,
-            user_id: str | None = None
+            user_id: str | None = None,
+            break_code: int = 0,
+            continue_handler: bool = False
         ) -> None:
         """
         发送戳一戳
@@ -2350,6 +2348,8 @@ class SendMsg:
                 group_id = group_id
             ),
         )
+        if not continue_handler:
+            self.break_handler(break_code)
 
     async def _send_zone(
             self,
@@ -2392,6 +2392,8 @@ class SendMsg:
             images: list[str] | None = None,
             ugc_right: ZoneUGCRight | None = None,
             target_uins: list[int] | None = None,
+            break_code: int = 0,
+            continue_handler: bool = False
         ) -> str | None:
         """
         发送 QQ 空间说说
@@ -2401,7 +2403,7 @@ class SendMsg:
         :param ugc_right: 权限
         :param target_uins: 目标用户列表
         """
-        return await self.zone_speed_limiter.submit(
+        result = await self.zone_speed_limiter.submit(
             self._send_zone(
                 content,
                 images,
@@ -2409,3 +2411,8 @@ class SendMsg:
                 target_uins,
             )
         )
+
+        if not continue_handler:
+            self.break_handler(break_code)
+
+        return result
