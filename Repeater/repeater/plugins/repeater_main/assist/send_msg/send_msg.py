@@ -48,6 +48,7 @@ from .text_tender_exceptions import (
     NotInitializedResponse,
     TextRenderException,
 )
+from .zone_ugc_right import ZoneUGCRight
 
 logger = base_logger.bind(module = "SendMsg")
 
@@ -162,6 +163,9 @@ class SendMsg:
     )
     poke_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
         storage_configs.camouflage.limit_speed_per_minute.poke
+    )
+    zone_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
+        storage_configs.camouflage.limit_speed_per_minute.zone
     )
     
     @overload
@@ -2345,4 +2349,63 @@ class SendMsg:
                 user_id = user_id,
                 group_id = group_id
             ),
+        )
+
+    async def _send_zone(
+            self,
+            content: str,
+            images: list[str] | None = None,
+            ugc_right: ZoneUGCRight | None = None,
+            target_uins: list[int] | None = None,
+        ) -> str | None:
+        """
+        发送 QQ 空间说说
+
+        :param content: 说说内容
+        :param images: 图片链接列表
+        :param ugc_right: 权限
+        :param target_uins: 目标用户列表
+        """
+
+        data: dict[str, Any] = {
+            "content": content
+        }
+
+        if images:
+            data["images"] = images
+
+        if ugc_right:
+            data["ugc_right"] = ugc_right.to_zone_ugc_right_num()
+
+        if target_uins:
+            data["target_uins"] = target_uins
+
+        response: dict = await self._persona_info.cached_api.send_qzone_msg(
+            **data
+        )
+
+        return response.get("tid")
+
+    async def send_zone(
+            self,
+            content: str,
+            images: list[str] | None = None,
+            ugc_right: ZoneUGCRight | None = None,
+            target_uins: list[int] | None = None,
+        ) -> str | None:
+        """
+        发送 QQ 空间说说
+
+        :param content: 说说内容
+        :param images: 图片链接列表
+        :param ugc_right: 权限
+        :param target_uins: 目标用户列表
+        """
+        return await self.zone_speed_limiter.submit(
+            self._send_zone(
+                content,
+                images,
+                ugc_right,
+                target_uins,
+            )
         )
