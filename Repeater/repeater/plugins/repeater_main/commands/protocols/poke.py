@@ -14,7 +14,7 @@ class Poke(CommandPackage):
         "Poke",
         "POKE",
     }
-    cmd_type = CmdTypes.CONTROL
+    cmd_type = CmdTypes.PROTOCOL
     description = f"""
     Send a poke message to the user.
 
