@@ -5,10 +5,11 @@ async def send_group_file(
     group_id: str,
     url: str,
     file_name: str,
-):
+) -> str | None:
     data = {
         "group_id": group_id,
         "file": url,
         "name": file_name
     }
-    await bot.upload_group_file(**data)
+    response: dict = await bot.upload_group_file(**data)
+    return response.get("file_id")
