@@ -33,9 +33,29 @@ class SendZone(CommandPackage):
             return False
         return raw_result
 
-    async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
+    async def get_content(self, persona_info: PersonaInfo) -> tuple[str, list[str]]:
+        text_buffer: list[str] = []
+        images: list[str] = []
+
+        for reply in await persona_info.from_reply_reversed_chain():
+            text = reply.message_stripped_str
+            if text:
+                text_buffer.append(text)
+            images.extend(reply.get_images_url())
+
         text = persona_info.message_stripped_str
-        images = persona_info.get_images_url()
+        if text:
+            text_buffer.append(text)
+        images.extend(persona_info.get_images_url())
+
+        return "\n\n".join(text_buffer), images
+
+    async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
+        text, images = await self.get_content(persona_info)
+
+        if not text:
+            await send_msg.send_error("No content.")
+            send_msg.break_handler()
 
         result = await send_msg.send_zone(
             content = text,
