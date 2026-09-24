@@ -37,11 +37,10 @@ class SendZone(CommandPackage):
         text = persona_info.message_stripped_str
         images = persona_info.get_images_url()
 
-        if not text:
-            await send_msg.send_error("No content provided.")
-            send_msg.break_handler()
-
-        await send_msg.send_zone(
+        result = await send_msg.send_zone(
             content = text,
-            images = images
+            images = images,
+            continue_handler = True
         )
+
+        await send_msg.send_prompt(f"TID: {result}")
