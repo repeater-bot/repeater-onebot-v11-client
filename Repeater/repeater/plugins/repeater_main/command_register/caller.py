@@ -586,13 +586,10 @@ class CommandCaller:
                         message_id = persona_info.message_id,
                         task_id = task_id,
                     )
-                    send_msg.break_handler()
+                    return await package.insufficient_access(persona_info, send_msg)
                 
                 if not await cls.check_acceptable_sources(package, persona_info):
                     return await package.on_unacceptable_source(persona_info, send_msg)
-                
-                if package.super_permissions and not persona_info.has_super_permissions:
-                    return await package.insufficient_access(persona_info, send_msg)
 
                 if debug_mode:
                     return await package.on_debug_mode(persona_info, send_msg)

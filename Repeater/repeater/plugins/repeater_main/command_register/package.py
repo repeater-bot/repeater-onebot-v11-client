@@ -327,6 +327,9 @@ class CommandPackage(ABC, Generic[T]):
         
         if behavioral_act.block_output:
             send_msg.sending_target = SendingTarget.NULL
+
+        if self.super_permissions and not persona_info.has_super_permissions:
+            return False
         
         return True
     
