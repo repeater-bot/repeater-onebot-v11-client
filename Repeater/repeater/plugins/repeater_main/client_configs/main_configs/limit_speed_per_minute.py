@@ -8,3 +8,4 @@ class LimitSpeedPerMinute(BaseModel):
     send_msg: int | float | None = 100
     file: int | float | None = 50
     poke: int | float | None = 6
+    zone: int | float | None = 20

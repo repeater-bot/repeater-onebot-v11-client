@@ -35,6 +35,7 @@ class StorageConfigs(BaseModel):
     ignore_enter: IgnoreEnter = Field(default_factory = IgnoreEnter)
     super_permissions: list[PermissionRule] = Field(default_factory = list)
     external_trigger_server: ExternalTriggerServer = Field(default_factory = ExternalTriggerServer)
+    zone_sender_need_permission: bool = True
     summarize_and_contract_default_message: str = "System Message: please sum up all the contents above."
     ciallo_content: str = "Ciallo~ (∠・ω< )⌒★"
     branch_file_size_use_abbreviation: bool = True
