@@ -523,7 +523,7 @@ class CommandCaller:
             debug_mode,
         )
         if isinstance(result, type):
-            if issubclass(result, SubCmdBreaked):
+            if issubclass(result, SubCmdExit):
                 result = result()
 
         if isinstance(result, SubCmdExit):
@@ -577,7 +577,7 @@ class CommandCaller:
                         name = package.component,
                         task_id = task_id,
                     )
-                    send_msg.break_handler()
+                    send_msg.break_handler(1)
 
                 if not await package.permissions_check(persona_info, send_msg):
                     logger.warning(
