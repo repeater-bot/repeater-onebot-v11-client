@@ -613,7 +613,6 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `waitCall`                 | `wc`     | `WaitCall`                | `CONTROL`   | 4.8.0.0        | 等待用户输入消息后执行          | 格式为: 命令 参数                          | 等待一条当前会话的消息，并执行指定的命令 |
 | `loop`                     | `l`      | `Loop`                    | `CONTROL`   | 4.8.0.0        | 循环执行命令                   | 格式为: 循环次数 命令 参数                  | 循环次数不填时，重复执行直到命令返回 0 值结束，当循环次数前面添加 `*` 时，循环直到命令返回 0 值或到达最大次数时结束 |
 | `messageWithdrawn`         | `mw`     | `MessageWithdrawn`        | `CONTROL`   | 4.8.0.0        | 撤回机器人消息                 | 引用一个该机器人的消息                      | 撤回机器人发送的消息 |
-| `poke`                     | `poke`   | `Poke`                    | `CONTROL`   | 4.8.3.2        | 戳一戳                        | @戳一戳的对象                              | 不填写参数时目标为自己 |
 | `cancel`                   | `cl`     | `Cancel`                  | `CONTROL`   | 4.8.3.2        | 取消一个命令                   | 任务 ID                                   | 取消一个命令 |
 | `taskList`                 | `tl`     | `TaskList`                | `CONTROL`   | 4.8.3.2        | 查看当前任务列表                | 无                                       | 查看当前用户所有正在运行的 Task 实例 |
 | `cascade`                  | `cas`    | `Cascade`                 | `CONTROL`   | 4.8.5.0        | 级联执行命令                   | 格式为: 命令 参数                          | 每行一个命令，下一个命令执行时，会使用上一个命令的输出作为输入，最后一个直接输出，支持变量表达式 |
@@ -630,6 +629,7 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `debugMode`                | `dm`     | `DebugMode`               | `CONTROL`   | 4.9.3.0        | 调试模式                       | 格式为：命令 参数                          | 启用调试模式运行一个命令 |
 | `scheduling`               | `scdl`   | `Scheduling`              | `CONTROL`   | 4.9.3.0        | 定时任务                       | 格式为：{cron 表达式} 命令 参数             | 创建一个定时任务，注意花括号需要保留以告知程序 cron 表达式的边界 |
 | `similar`                  | `sml`    | `Similar`                 | `CONTROL`   | 4.9.7.0        | 相似度判断                     | 第一行为相似度，比较第二行与第三行，并执行标签 | 当高于阈值时，执行 `similar:` 标签，否则执行 `dissimilar:` 标签 |
+| `textTrigger`              | `tt`     | `TextTrigger`             | `CONTROL`   | 4.9.10.2       | 文本触发器                     | 第一行为正则表达式，后面一行一个命令          | 监控自己的消息输入，当匹配正则表达式时，顺序执行后面的命令，并将 `{message}` 替换为接受到的文本 |
 
 ### Variable Command
 
@@ -922,6 +922,13 @@ PS：该配置文件是专门用于对接ChatTTS的
 | `sendMessage`              | `smsg`   | `SendMessage`             | `SENDMSG`   | 4.4.12.0       | 发送消息，使用结构体            | OneBot 消息结构                            | 发送一条自定义消息（需要 `allow_send_any_message` 字段为 `true`） |
 | `sendMessageCQ`            | `smsgcq` | `SendMessageCQ`           | `SENDMSG`   | 4.9.1.0        | 发送消息，使用 CQ 码            | 包含 CQ 码的消息结构                       | 发送一条自定义消息（需要 `allow_send_any_message` 字段为 `true`） |
 | `getCQ`                    | `gcq`    | `GetCQ`                   | `SENDMSG`   | 4.9.3.0        | 获取 CQ 码                     | 任意消息                                  | 获取当前 CQ 码 |
+
+### Protocol Command
+
+| Command                    | Abridge  | Full Name                 | Type        | Joined Version | Description                   | Parameter Description                     | Remarks |
+| :---                       | :---     | :---                      | :---:       | :---           | :---                          | :---                                      | :---    |
+| `poke`                     | `poke`   | `Poke`                    | `PROTOCOL`  | 4.8.3.2        | 戳一戳                        | @戳一戳的对象                              | 不填写参数时目标为自己 |
+| `sendZone`                 | `sz`     | `SendZone`                | `PROTOCOL`  | 4.9.10.0       | 向 QQ 空间发送一条动态         | 要发送的内容（可包含图片）                   | 发送到机器人自己的 QQ 空间，当 `zone_sender_need_permission` 为 `true` 时，则需要用户持有 `super_permission` 权限 |
 
 ### Games Command
 
