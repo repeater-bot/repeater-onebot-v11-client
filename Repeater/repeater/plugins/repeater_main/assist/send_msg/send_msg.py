@@ -2033,7 +2033,7 @@ class SendMsg:
         if self._persona_info.enter_type != EnterType.External and reply:
             send_msg = self._reply + send_msg
 
-        if self._send_hook is not None:
+        if self._send_hook is not None and self.sending_target != SendingTarget.NULL:
             await self._send_hook(
                 send_msg,
                 self.sending_target
@@ -2305,7 +2305,7 @@ class SendMsg:
                         }
                     )
                 ),
-                self.sending_target
+                SendingTarget.API
             )
         if not continue_handler:
             self.break_handler(break_code)
