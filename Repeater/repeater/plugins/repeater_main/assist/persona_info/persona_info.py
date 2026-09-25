@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import copy
 import uuid
-import httpx
 
 from nonebot import get_bots
+from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
     MessageSegment,
     Message
 )
+from nonebot.exception import ActionFailed
 from nonebot.internal.adapter.adapter import Adapter
 from typing import (
     Any,
@@ -19,8 +20,6 @@ from typing import (
     Iterable,
     Callable
 )
-
-from nonebot.internal.adapter.bot import Bot
 from ..assist_func import (
     at_with_name,
     image_to_text,
@@ -38,6 +37,7 @@ from .cached_apis import CachedAPI
 from ..user_config import UserConfigLoader, UserConfigs
 from ..permission_checker import PermissionChecker
 from ...client_configs import storage_configs
+from ...logger import logger
 from ..special_values import NoGive, nogive
 from ._copy_value import copy_value
 
@@ -520,7 +520,7 @@ class PersonaInfo:
         return self._cached_api
     
     @property
-    def bots(self) -> dict[str, Bot]:
+    def bots(self) -> dict[str, BaseBot]:
         """
         所有 Bot 实例
         """
@@ -738,7 +738,7 @@ class PersonaInfo:
             if segment.type == "at":
                 mentioned_id = segment.data["qq"]
                 # 检查是否@的是非机器人用户
-                if mentioned_id != self._bot.self_id:
+                if mentioned_id != self.self_id:
                     at_list.append(mentioned_id)
         return at_list
     
@@ -854,16 +854,28 @@ class PersonaInfo:
         if "reply" in self.message:
             message = self.message
         else:
-            event = await self.get_message_event()
-            message = event.message
-
-        chain = get_reply_chain(
-            bot = self._cached_api,
-            message = message,
-            max_depth = max_depth
-        )
-        async for msg in chain:
-            yield msg
+            try:
+                event = await self.get_message_event()
+                message = event.message
+            except ActionFailed as e:
+                logger.error(
+                    "Get Raw Message Failed: {e}",
+                    e = e
+                )
+        
+        try:
+            chain = get_reply_chain(
+                bot = self._cached_api,
+                message = message,
+                max_depth = max_depth
+            )
+            async for msg in chain:
+                yield msg
+        except ActionFailed as e:
+            logger.error(
+                "Failed to get reply chain: {e}",
+                e = e
+            )
     
     async def get_reply_msgs(self, message: Message | None = None) -> list[MessageEvent]:
         """
