@@ -12,11 +12,11 @@ class CompletedImageEvent(BaseModel):
     )
 
     b64_json: str | None = None
-    background: Background | None = None
+    background: str | None = None
     created_at: int | None = None
-    output_format: OutputFormat | None = None
+    output_format: str | None = None
     partial_image_index: int | None = None
-    quality: Quality | None = None
-    size: ImageSize | None = None
+    quality: str | None = None
+    size: str | None = None
     type: Literal["image_generation.completed"] = "image_generation.completed"
     usage: StreamUsage | None = None
