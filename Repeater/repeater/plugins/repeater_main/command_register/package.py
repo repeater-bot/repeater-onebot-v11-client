@@ -319,14 +319,15 @@ class CommandPackage(ABC, Generic[T]):
         :return: True or False
         """
         behavioral_act = storage_configs.get_behavioral_act(persona_info.user_id)
+        
+        if behavioral_act.block_output:
+            send_msg.sending_target = SendingTarget.NULL
+        
         if not behavioral_act.check_cmd_types_allowed(self.cmd_type):
             return False
         
         if behavioral_act.block_handlers:
             return False
-        
-        if behavioral_act.block_output:
-            send_msg.sending_target = SendingTarget.NULL
 
         if self.super_permissions and not persona_info.has_super_permissions:
             return False
