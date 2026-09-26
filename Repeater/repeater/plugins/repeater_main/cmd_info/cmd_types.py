@@ -39,5 +39,6 @@ class CmdTypes(Enum):
     NAMESPACE = "NAMESPACE"
     STATISTIC = "STATISTIC"
     GAMES = "GAMES"
+    HTTP = "HTTP"
     CLIENT_CONFIG = "CLIENT_CONFIG"
     OTHER = "OTHER"
