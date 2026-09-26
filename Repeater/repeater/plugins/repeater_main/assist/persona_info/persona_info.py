@@ -862,6 +862,7 @@ class PersonaInfo:
                     "Get Raw Message Failed: {e}",
                     e = e
                 )
+                return
         
         try:
             chain = get_reply_chain(
