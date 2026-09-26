@@ -127,7 +127,7 @@ class CommandCaller:
             "bot {bot_id} connect...",
             bot_id = bot.self_id
         )
-        async def external_trigger_callback(handler: str, event: MessageEvent, args: Message):
+        async def external_trigger_callback(handler: str, event: MessageEvent, args: Message | None):
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
@@ -333,11 +333,11 @@ class CommandCaller:
             )
             task_id = uuid.uuid4()
             persona_info ,send_msg = await package.command_enter(
-                bot,
-                event,
-                args,
-                matcher,
-                task_id
+                task_id = task_id,
+                bot = bot,
+                event = event,
+                args = args,
+                matcher = matcher,
             )
             return await cls.run_handle(
                 task_id,
@@ -364,10 +364,10 @@ class CommandCaller:
             )
             task_id = uuid.uuid4()
             persona_info ,send_msg = await package.message_enter(
-                bot,
-                event,
-                matcher,
-                task_id
+                task_id = task_id,
+                bot = bot,
+                event = event,
+                matcher = matcher,
             )
             return await cls.run_handle(
                 task_id,
@@ -736,7 +736,7 @@ class CommandCaller:
         package: Type[CommandPackage[T_Handler_Result]] | CommandPackage[T_Handler_Result],
         bot: Bot,
         event: MessageEvent,
-        args: Message,
+        args: Message | None = None,
         debug_mode: bool | None = None
     ) -> tuple[list[Message], T_Handler_Result | Any]:
         """
@@ -758,10 +758,10 @@ class CommandCaller:
         
         task_id = uuid.uuid4()
         persona_info, send_msg = await package_instance.external_enter(
+            task_id = task_id,
             bot = bot,
             event = event,
             args = args,
-            task_id = task_id
         )
 
         outputs: list[Message] = []
