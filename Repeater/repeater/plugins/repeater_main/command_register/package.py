@@ -205,7 +205,7 @@ class CommandPackage(ABC, Generic[T]):
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
-    async def message_enter(self, bot: Bot, event: MessageEvent, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def message_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Message Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -228,7 +228,7 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def command_enter(self, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def command_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Command Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -253,7 +253,7 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def external_enter(self, bot: Bot, event: MessageEvent, args: Message, task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register an External Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
