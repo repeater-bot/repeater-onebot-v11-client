@@ -47,7 +47,7 @@ class TaskList(CommandPackage):
                     task_id = task.task_id
                     start_formatted = datetime.fromtimestamp(task.start_time / 1e9).isoformat()
                     formatted_running_time_ms = f"{(now_monotonic_time - task.start_monotonic_time) / 1e6:.3f}"
-                    formatted_running_time = format_time_duration_ns(now_monotonic_time - task.start_monotonic_time)
+                    formatted_running_time = format_time_duration_ns(now_monotonic_time - task.start_monotonic_time, use_abbreviation = True)
 
                     if index == len(tasks) - 1:
                         text_buffer.append(f"└ {task_id}")
