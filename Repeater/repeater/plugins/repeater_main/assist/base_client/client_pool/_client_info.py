@@ -1,13 +1,10 @@
 from pydantic import BaseModel
 from httpx import AsyncClient, Limits, Timeout
 from ._timeout import ClientTimeout
-from ._limit import ClientLimits
 from ...network import http_transport
 
 class ClientInfo(BaseModel, frozen=True):
     url: str = ""
-    proxy: str | None = None
-    limits: ClientLimits | None = None
     follow_redirects: bool = True
     timeout: int | float | ClientTimeout | None = 5.0
     encoding: str = "utf-8"
@@ -30,11 +27,6 @@ class ClientInfo(BaseModel, frozen=True):
         cookies: dict[str, str] | None = None,
         auth: tuple[str, str] | None = None
     ) -> AsyncClient:
-        if self.limits is None:
-            limits = self._default_limits()
-        else:
-            limits = self.limits.to_limits()
-
         if self.timeout is None:
             timeout = None
         if isinstance(self.timeout, int | float):
@@ -50,10 +42,8 @@ class ClientInfo(BaseModel, frozen=True):
             headers = headers,
             cookies = cookies,
             auth = auth,
-            proxy = self.proxy,
             follow_redirects = self.follow_redirects,
             transport = http_transport,
-            limits = limits,
             timeout = timeout,
             default_encoding = self.encoding
         )
