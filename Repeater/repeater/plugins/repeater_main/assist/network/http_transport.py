@@ -3,8 +3,7 @@ import curlify2
 from httpx import (
     AsyncHTTPTransport,
     Request,
-    Response,
-    AsyncClient
+    Response
 )
 from .ssl import ssl_context
 from loguru import logger
