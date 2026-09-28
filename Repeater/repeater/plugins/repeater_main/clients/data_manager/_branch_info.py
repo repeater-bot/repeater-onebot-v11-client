@@ -1,19 +1,20 @@
 from pydantic import BaseModel
 from datetime import datetime
-from ...assist import format_carry_duration
+from ...assist import format_carry_duration, Preset, Level, FinalLevel
 from ...client_configs import storage_configs
 
-SIZE_UNITS = [
-    ("Bytes", "B", 1024),
-    ("Kibibyte", "KiB", 1024),
-    ("Mebibyte", "MiB", 1024),
-    ("Gibibyte", "GiB", 1024),
-    ("Tebibyte", "TiB", 1024),
-    ("Pebibyte", "PiB", 1024),
-    ("Exbibyte", "EiB", 1024),
-]
-
-FINAL_SIZE_UNIT = ("Yobibyte", "YiB")
+SIZE_PRESET = Preset(
+    levels=[
+        Level("Bytes", "B", 1024),
+        Level("Kibibyte", "KiB", 1024),
+        Level("Mebibyte", "MiB", 1024),
+        Level("Gibibyte", "GiB", 1024),
+        Level("Tebibyte", "TiB", 1024),
+        Level("Pebibyte", "PiB", 1024),
+        Level("Exbibyte", "EiB", 1024),
+    ],
+    final_level = FinalLevel("Yobibyte", "YiB")
+)
 
 class BranchInfo(BaseModel):
     """Branch Info"""
@@ -28,8 +29,7 @@ class BranchInfo(BaseModel):
     @property
     def readable_size(self) -> str:
         return format_carry_duration(
-            self.size,
-            SIZE_UNITS,
-            final_level = FINAL_SIZE_UNIT,
+            value = self.size,
+            preset = SIZE_PRESET,
             use_abbreviation = storage_configs.branch_file_size_use_abbreviation
         )
