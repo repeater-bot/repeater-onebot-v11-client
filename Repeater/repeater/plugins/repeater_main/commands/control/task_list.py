@@ -31,11 +31,11 @@ class TaskList(CommandPackage):
     """
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        task_list = await CommandCaller.get_user_runnings(persona_info.namespace)
+        tasks_set = await CommandCaller.get_runnings(persona_info.namespace)
         now_monotonic_time = time.perf_counter_ns()
-        if task_list:
+        if tasks_set:
             tasks_map: dict[str, list[RunningPackage[Any]]] = {}
-            for task in task_list:
+            for task in tasks_set:
                 if task.package.component not in tasks_map:
                     tasks_map[task.package.component] = []
                 tasks_map[task.package.component].append(task)
@@ -50,29 +50,17 @@ class TaskList(CommandPackage):
                     formatted_running_time = format_time_duration_ns(now_monotonic_time - task.start_monotonic_time, use_abbreviation = True)
 
                     if index == len(tasks) - 1:
-                        text_buffer.append(f"└ {task_id}")
+                        text_buffer.append(f"└ [{task_id}]")
                         text_buffer.append(f"  ├ Start for {start_formatted}")
                         text_buffer.append(f"  ├ Running for {formatted_running_time_ms}ms")
                         text_buffer.append(f"  └ Running for {formatted_running_time}")
                     else:
-                        text_buffer.append(f"├ {task_id}")
+                        text_buffer.append(f"├ [{task_id}]")
                         text_buffer.append(f"│ ├ Start for {start_formatted}")
                         text_buffer.append(f"│ ├ Running for {formatted_running_time_ms}ms")
                         text_buffer.append(f"│ └ Running for {formatted_running_time}")
             
             text = "\n".join(text_buffer)
-            threshold = send_msg.length_score_threshold
-        
-            length_score = send_msg.text_length_score(text)
-            if length_score >= threshold:
-                await send_msg.send_mixed_render(
-                    f"```\n{text}\n```",
-                    prompt_mode = True
-                )
-            else:
-                await send_msg.send_prompt(
-                    text,
-                )
-            await send_msg.send_check_length_prompt("\n".join(text_buffer))
+            await send_msg.send_check_length_prompt(text, code_block = True)
         else:
             await send_msg.send_error("No running tasks.")
