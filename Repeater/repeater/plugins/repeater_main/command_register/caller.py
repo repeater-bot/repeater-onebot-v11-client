@@ -37,6 +37,7 @@ from nonebot import logger
 from .running_package import RunningPackage
 from .sub_cmd_exit import SubCmdBreaked, SubCmdExit
 from .external_trigger import register_external_trigger, et_server
+from contextvars import ContextVar
 
 T_Handler_Result = TypeVar("T_Handler_Result")
 
@@ -59,6 +60,13 @@ class CommandCaller:
     listen_message_tasks: dict[Namespace, set[asyncio.Future[PersonaInfo]]] = {}
     listen_lock: asyncio.Lock = asyncio.Lock()
     et_server_task: asyncio.Task | None = None
+
+    forward_call_index: dict[uuid.UUID, set[uuid.UUID]] = {}
+    reverse_call_index: dict[uuid.UUID, uuid.UUID] = {}
+    call_index_lock = asyncio.Lock()
+
+    _identity: ContextVar[CommandPackage[Any] | None] = ContextVar("_identity", default=None)
+    _task_id: ContextVar[uuid.UUID | None] = ContextVar("_task_id", default=None)
 
     @classmethod
     async def run_et_server(cls):
@@ -256,25 +264,41 @@ class CommandCaller:
     @classmethod
     async def get_runnings(cls, namespace: Namespace) -> set[RunningPackage]:
         """
-        Get all running tasks.
+        Get running tasks.
 
         :param namespace: namespace
         :return: set of running tasks
         """
         async with cls.running_lock:
             runnings = cls.running_map.get(namespace, set())
-            return {cls.runnings[i] for i in runnings}
-    
+            return {cls.runnings[i] for i in runnings if i in cls.runnings}
+
     @classmethod
-    async def get_user_runnings(cls, namespace: Namespace) -> list[RunningPackage]:
+    async def get_running_ids(cls, namespace: Namespace) -> set[uuid.UUID]:
         """
-        Get all running tasks for a user.
+        Get running tasks.
 
         :param namespace: namespace
-        :return: list of running tasks
+        :return: set of running tasks
         """
         async with cls.running_lock:
-            return [cls.runnings[uuid] for uuid in cls.running_map.get(namespace, set())]
+            runnings = cls.running_map.get(namespace, set())
+            return {i for i in runnings if i in cls.runnings}
+
+    @classmethod
+    async def get_running(cls, namespace: Namespace, task_id: uuid.UUID) -> RunningPackage | None:
+        """
+        Get running task.
+
+        :param namespace: namespace
+        :param task_id: task id
+        :return: running task
+        """
+        async with cls.running_lock:
+            runnings = cls.running_map.get(namespace, set())
+            if task_id not in runnings:
+                return None
+            return cls.runnings[task_id]
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
@@ -488,7 +512,7 @@ class CommandCaller:
                     user_running = cls.running_map[persona_info.namespace]
                     user_running.discard(task_id)
                     if not user_running:
-                        cls.running_map.pop(persona_info.namespace)
+                        cls.running_map.pop(persona_info.namespace, None)
     
     @classmethod
     async def enter_handler(
@@ -514,6 +538,9 @@ class CommandCaller:
                 debug_mode = True
             else:
                 debug_mode = False
+
+        cls._identity.set(package)
+        cls._task_id.set(task_id)
         
         result = await cls._enter_hander(
             task_id,
@@ -655,6 +682,45 @@ class CommandCaller:
                 send_msg = send_msg,
                 debug_mode = debug_mode
             )
+
+    @classmethod
+    async def _horizontal_enter(
+        cls,
+        task_id: uuid.UUID,
+        package: CommandPackage[T_Handler_Result],
+        persona_info: PersonaInfo,
+        send_msg: SendMsg,
+        debug_mode: bool | None = None,
+        created: asyncio.Future[RunningPackage[T_Handler_Result]] | None = None
+    ):
+        now_task_id = cls._task_id.get()
+        identity = cls._identity.get()
+        if now_task_id is None or identity is None:
+            raise RuntimeError("not a horizontal call made within a registered package.")
+
+        async with cls.call_index_lock:
+            childs = cls.forward_call_index.setdefault(now_task_id, set())
+            childs.add(task_id)
+
+            cls.reverse_call_index[task_id] = now_task_id
+        
+        try:
+            return await cls.run_handle(
+                task_id = task_id,
+                package = package,
+                persona_info = persona_info,
+                send_msg = send_msg,
+                debug_mode = debug_mode,
+                created = created
+            )
+        finally:
+            async with cls.call_index_lock:
+                childs = cls.forward_call_index.get(now_task_id)
+                if childs is not None:
+                    childs.discard(task_id)
+                    if not childs:
+                        cls.forward_call_index.pop(now_task_id)
+                cls.reverse_call_index.pop(task_id, None)
     
     @classmethod
     async def horizontal_call(
@@ -682,7 +748,7 @@ class CommandCaller:
         
         task_id = uuid.uuid4()
         persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg, task_id)
-        return await cls.run_handle(
+        return await cls._horizontal_enter(
             task_id = task_id,
             package = package_instance,
             persona_info = persona_info_copy,
@@ -719,7 +785,7 @@ class CommandCaller:
         loop = asyncio.get_running_loop()
         created: asyncio.Future[RunningPackage[T_Handler_Result]] = loop.create_future()
         asyncio.create_task(
-            cls.run_handle(
+            cls._horizontal_enter(
                 task_id = task_id,
                 package = package_instance,
                 persona_info = persona_info_copy,
@@ -1033,17 +1099,13 @@ class CommandCaller:
 
         if package_instance.component in cls.components:
             package_instance.on_duplicate_component(
-                cls.get_instance(
-                    cls.components[package_instance.component]
-                )
+                cls.components[package_instance.component]
             )
         cls.components[package_instance.component] = package
         
         if package.__name__ in cls.class_names:
             package.on_duplicate_class_name(
-                cls.get_instance(
-                    cls.class_names[package.__name__]
-                )
+                cls.class_names[package.__name__]
             )
         cls.class_names[package.__name__] = package
         
@@ -1088,7 +1150,7 @@ class CommandCaller:
         :param package: Package
         """
         if trigger in cls.triggers:
-            package.on_duplicate_trigger(trigger)
+            package.on_duplicate_trigger(cls.triggers[trigger])
         cls.triggers[trigger] = package
     
     @classmethod
