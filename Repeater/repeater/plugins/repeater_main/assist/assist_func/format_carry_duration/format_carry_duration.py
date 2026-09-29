@@ -24,7 +24,7 @@ def format_carry_duration(
     
     # Handle zero value
     if value == 0:
-        name= preset.levels[0].name, preset.levels[0].name
+        name= preset.levels[0].name
         abbr = preset.levels[0].abbr
         return f"0 {abbr if use_abbreviation else name}"
     
