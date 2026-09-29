@@ -195,6 +195,17 @@ class PersonaInfo:
         )
         return persona_info
     
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, PersonaInfo):
+            return (
+                self._bot == other._bot and
+                self._message_event == other._message_event and
+                self._args == other._args and
+                self._task_id == other._task_id and
+                self._enter_type == other._enter_type
+            )
+        return False
+    
     def copy(
             self,
             bot: Bot | NoGive = nogive,
@@ -267,15 +278,6 @@ class PersonaInfo:
             task_id = new_task_id,
             enter_type = new_enter_type,
         )
-    
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, PersonaInfo):
-            return (
-                self._bot == other._bot and
-                self._message_event == other._message_event and
-                self._args == other._args
-            )
-        return False
     
     async def from_message_event(
             self,
