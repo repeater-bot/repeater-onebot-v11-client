@@ -36,6 +36,10 @@ class DeleteZone(CommandPackage):
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         tid = persona_info.message_stripped_str
 
+        if not tid:
+            await send_msg.send_prompt("Please input a valid status tid.")
+            return
+
         result = await persona_info.cached_api.send_zone(
             tid = tid
         )
