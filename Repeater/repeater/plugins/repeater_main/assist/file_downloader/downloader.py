@@ -25,6 +25,7 @@ class Downloader:
                 url,
                 timeout = timeout
             )
+            response.raise_for_status()
         finally:
             end_time = time.perf_counter_ns()
             logger.info(
@@ -41,6 +42,7 @@ class Downloader:
                 url,
                 timeout = timeout
             )
+            response.raise_for_status()
         finally:
             end_time = time.perf_counter_ns()
             logger.info(

@@ -21,7 +21,10 @@ async def external_trigger_call(request: ExternalTriggerRequest):
         )
 
     message = Message(request.message)
-    args = Message(request.args)
+    if request.args is None:
+        args = None
+    else:
+        args = Message(request.args)
     namespace = Namespace.from_str(request.namespace)
 
     event = make_message_event(

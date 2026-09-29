@@ -17,11 +17,8 @@ class FrameworkMessageListener(CommandPackage):
     """
 
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
-        return True
-
-    async def enter_handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         send_msg.sending_target = SendingTarget.NULL
-        return await super().enter_handler(persona_info, send_msg)
+        return True
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         asyncio.create_task(

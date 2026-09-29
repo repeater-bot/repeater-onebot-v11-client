@@ -147,6 +147,11 @@ class CommandPackage(ABC, Generic[T]):
         return f"Repeater.{self.cmd_type.value}.{self.__class__.__name__}"
 
     @classmethod
+    def package_path(cls) -> str:
+        """The path of the Handler (required) """
+        return f"{cls.__module__}.{cls.__qualname__}"
+
+    @classmethod
     def documents(cls) -> str | Iterable[str] | None:
         """This handler's documentation"""
         pass
@@ -205,7 +210,7 @@ class CommandPackage(ABC, Generic[T]):
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
-    async def message_enter(self, bot: Bot, event: MessageEvent, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def message_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Message Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -228,7 +233,7 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def command_enter(self, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher], task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def command_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register a Command Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -253,7 +258,7 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def external_enter(self, bot: Bot, event: MessageEvent, args: Message, task_id: uuid.UUID) -> tuple[PersonaInfo, SendMsg]:
+    async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register an External Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
@@ -319,14 +324,18 @@ class CommandPackage(ABC, Generic[T]):
         :return: True or False
         """
         behavioral_act = storage_configs.get_behavioral_act(persona_info.user_id)
+        
+        if behavioral_act.block_output:
+            send_msg.sending_target = SendingTarget.NULL
+        
         if not behavioral_act.check_cmd_types_allowed(self.cmd_type):
             return False
         
         if behavioral_act.block_handlers:
             return False
-        
-        if behavioral_act.block_output:
-            send_msg.sending_target = SendingTarget.NULL
+
+        if self.super_permissions and not persona_info.has_super_permissions:
+            return False
         
         return True
     
@@ -572,7 +581,7 @@ class CommandPackage(ABC, Generic[T]):
         pass
     
     @classmethod
-    def on_duplicate_trigger(cls, trigger: str | tuple[str, ...]):
+    def on_duplicate_trigger(cls, other: "type[CommandPackage[Any]]"):
         """
         This section is executed when the Handler is triggered by a duplicate trigger.
 
@@ -582,11 +591,12 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.trigger:
-            raise ValueError(f"Trigger {repr(trigger)} is already registered")
+            raise ValueError(f"Trigger {cls.package_path()} and {other.package_path()} is already registered")
         else:
             logger.warning(
-                "Trigger {trigger} is already registered, this can have undesired consequences.",
-                trigger = repr(trigger)
+                "Trigger {path} and {other_path} is already registered, this can have undesired consequences.",
+                path = cls.package_path(),
+                other_path = other.package_path()
             )
 
     @classmethod
@@ -600,15 +610,15 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.type:
-            raise ValueError(f"Handler Type {repr(cls)} is already registered")
+            raise ValueError(f"Handler Type {cls.package_path()} is already registered")
         else:
             logger.warning(
-                "Handler type {handler} is already registered, this may result in overwriting.",
-                handler = repr(cls)
+                "Handler type {path} is already registered, this may result in overwriting.",
+                path = cls.package_path()
             )
 
     @classmethod
-    def on_duplicate_class_name(cls, other: "CommandPackage[Any]"):
+    def on_duplicate_class_name(cls, other: "type[CommandPackage[Any]]"):
         """
         This section is executed when the class name is triggered by a duplicate class name.
 
@@ -618,14 +628,16 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.class_name:
-            raise ValueError(f"Handler class name {cls.__name__} and {other.component} is already registered")
+            raise ValueError(f"Handler class name {cls.package_path()} and {other.package_path()} is already registered")
         else:
             logger.warning(
-                "Handler class name {class_name} is already registered, this may result in overwriting.",
-                class_name = cls.__name__
+                "Handler class name {self_path} and {other_path} is already registered, this may result in overwriting.",
+                self_path = cls.package_path(),
+                other_path = other.package_path()
             )
 
-    def on_duplicate_component(self, other: "CommandPackage[Any]"):
+    @classmethod
+    def on_duplicate_component(cls, other: "type[CommandPackage[Any]]"):
         """
         This section is executed when the component is triggered by a duplicate component.
 
@@ -635,15 +647,16 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.handler:
-            raise ValueError(f"Component {self.component} and {other.component} is already registered")
+            raise ValueError(f"Component {cls.package_path()} and {other.package_path()} is already registered")
         else:
             logger.warning(
-                "Component {component} and {other_component} is already registered, this may result in overwriting.",
-                component = self.component,
-                other_component = other.component
+                "Component {self_path} and {other_path} is already registered, this may result in overwriting.",
+                self_path = cls.package_path(),
+                other_path = other.package_path(),
             )
 
-    def on_duplicate_handler(self):
+    @classmethod
+    def on_duplicate_handler(cls):
         """
         This section is executed when the Handler is triggered by a duplicate handler.
 
@@ -653,11 +666,11 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.handler:
-            raise ValueError(f"Handler {self.component} is already registered")
+            raise ValueError(f"Handler {cls.package_path()} is already registered")
         else:
             logger.warning(
-                "Handler {handler} and {other_handler} is already registered, this may result in overwriting.",
-                handler = self.component
+                "Handler {handler} is already registered, this may result in overwriting.",
+                handler = cls.package_path(),
             )
 
     @classmethod
@@ -671,11 +684,11 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         if storage_configs.loading.throw_on_duplicate.matcher:
-            raise ValueError(f"The {repr(cls)} Matcher {repr(matcher)} is re-registered.")
+            raise ValueError(f"The {cls.package_path()} Matcher {repr(matcher)} is re-registered.")
         else:
             logger.warning(
                 "The {handler} matcher {matcher} is already registered, this may result in overwriting.",
-                handler = repr(cls),
+                handler = cls.package_path(),
                 matcher = repr(matcher)
             )
 

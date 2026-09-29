@@ -5,7 +5,7 @@ CALLABLE_TYPE = Callable[
     [
         str,
         MessageEvent,
-        Message
+        Message | None
     ],
     Awaitable[
         tuple[list[Message], int]

@@ -10,8 +10,7 @@ from typing import (
 from .package import CommandPackage
 from ..assist import PersonaInfo, SendMsg
 from nonebot.matcher import Matcher
-from .sub_cmd_exit import SubCmdBreaked
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 T = TypeVar("T")
 

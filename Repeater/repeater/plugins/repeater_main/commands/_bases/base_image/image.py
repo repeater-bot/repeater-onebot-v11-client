@@ -1,12 +1,14 @@
 import base64
 
-from ....assist import PersonaInfo, SendMsg
+from nonebot.adapters.onebot.v11 import MessageSegment
+from ....assist import PersonaInfo, SendMsg, Response
 from ....cmd_info import CmdTypes
 from ....command_register import(
-    CommandCaller,
     CommandPackage
 )
 from ....clients import (
+    ImagesResponse,
+    Image,
     ImageClient,
     Background,
     Moderation,
@@ -92,7 +94,7 @@ class GenerateImageBase(CommandPackage):
             style: ImageStyle | None = None,
             user: str | None = None,
             image_client: ImageClient,
-            send_msg: SendMsg) -> list[str | bytes]:
+        ) -> Response[ImagesResponse]:
         response = await image_client.generate(
             model_id = model_id,
 
@@ -111,42 +113,75 @@ class GenerateImageBase(CommandPackage):
             user = user,
         )
 
+        return response
+
+    async def parse_response(
+            self,
+            datas: list[Image],
+        ) -> list[bytes | str]:
+        gen_images: list[bytes | str] = []
+        for index, image in enumerate(datas):
+            if image.url is not None:
+                gen_images.append(
+                    image.url
+                )
+            elif image.b64_json is not None:
+                gen_images.append(
+                    base64.b64decode(image.b64_json)
+                )
+            else:
+                logger.warning(
+                    "No image data found in response[{index}].",
+                    index = index
+                )
+        return gen_images
+
+    async def send_images(self, persona_info: PersonaInfo, send_msg: SendMsg, response: ImagesResponse):
+        if response.data is not None:
+            output_images = await self.parse_response(
+                datas = response.data
+            )
+        else:
+            await send_msg.send_error("No image data found in response.")
+            send_msg.break_handler()
+
+        segments = [
+            MessageSegment.text("Generated image:"),
+            *[MessageSegment.image(image) for image in output_images],
+        ]
+
+        if response.usage is not None:
+            segments.append(
+                MessageSegment.text(
+                    response.usage.to_string()
+                )
+            )
+
+        await send_msg.send_any(
+            persona_info.make_message(
+                message = segments
+            )
+        )
+
+    async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
+        image_client = await self.get_client(persona_info)
+        images, prompt = await self.get_prompt(persona_info, send_msg)
+
+        response = await self.generate_image(
+            images = images,
+            prompt = prompt,
+            image_client = image_client
+        )
+
         if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error_response(response)
             else:
-                gen_images: list[bytes | str] = []
-                if data.data:
-                    for index, image in enumerate(data.data):
-                        if image.url is not None:
-                            gen_images.append(
-                                image.url
-                            )
-                        elif image.b64_json is not None:
-                            gen_images.append(
-                                base64.b64decode(image.b64_json)
-                            )
-                        else:
-                            logger.warning(
-                                "No image data found in response[{index}].",
-                                index = index
-                            )
-                    return gen_images
-                else:
-                    await send_msg.send_error("No image data found in response.")
+                    await self.send_images(
+                        persona_info = persona_info,
+                        send_msg = send_msg,
+                        response = data
+                    )
         else:
             await send_msg.send_error_response(response)
-
-        assert False, "This line is never reached."
-
-    async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        image_client = await self.get_client(persona_info)
-        images, prompt = await self.get_prompt(persona_info, send_msg)
-        output_images = await self.generate_image(
-            images = images,
-            prompt = prompt,
-            image_client = image_client,
-            send_msg = send_msg
-        )
-        await send_msg.send_images(*output_images)
