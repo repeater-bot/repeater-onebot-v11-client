@@ -1560,6 +1560,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
             document_bottom_comment: str | None = None,
@@ -1574,6 +1575,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
             document_bottom_comment: str | None = None,
@@ -1587,6 +1589,7 @@ class SendMsg:
     async def send_check_length(
             self,
             message: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
             document_bottom_comment: str | None = None,
@@ -1600,6 +1603,7 @@ class SendMsg:
         发送长度检测后的文本
 
         :param message: 消息
+        :param code_block: 当渲染为图片时使用代码块输出
         :param threshold: 长度阈值
         :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
@@ -1625,7 +1629,7 @@ class SendMsg:
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_render(
-                text,
+                f"```\n{text}\n```" if code_block else text,
                 title = title,
                 style = style,
                 html_template = html_template,
