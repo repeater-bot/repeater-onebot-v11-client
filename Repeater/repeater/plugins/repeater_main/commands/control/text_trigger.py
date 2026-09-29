@@ -49,7 +49,7 @@ class TextTrigger(CommandPackage):
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
 
-            if not asyncio.to_thread(pattern.match, new_message.message_stripped_str):
+            if not await asyncio.to_thread(pattern.match, new_message.message_stripped_str):
                 continue
 
             if commands:
