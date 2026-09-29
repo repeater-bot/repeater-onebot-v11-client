@@ -1079,7 +1079,10 @@ class SendMsg:
             prefix_text: str | None = None,
             suffix_text: str | None = None,
             prompt_mode: bool = True,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1092,7 +1095,10 @@ class SendMsg:
             prefix_text: str | None = None,
             suffix_text: str | None = None,
             prompt_mode: bool = True,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1104,7 +1110,10 @@ class SendMsg:
             prefix_text: str | None = None,
             suffix_text: str | None = None,
             prompt_mode: bool = True,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1112,10 +1121,16 @@ class SendMsg:
         """
         发送混合渲染文本
 
-        :param prefix_text: 前缀文本内容
         :param text_to_render: 需要渲染的文本内容
+        :param prefix_text: 前缀文本内容
         :param suffix_text: 后缀文本内容
+        :param prompt_mode: 是否为提示模式
+        :param title: 标题
+        :param document_bottom_comment: 文档底部注释
+        :param style: 样式
+        :param html_template: HTML模板
         :param reply: 是否携带引用
+        :param break_code: 返回码
         :param continue_handler: 是否继续运行当前处理流程
         """
         logger.info(
@@ -1123,7 +1138,10 @@ class SendMsg:
         )
         image = await self.render_text_to_msg_segment(
             text_to_render,
-            document_bottom_comment = document_bottom_comment
+            title = title,
+            document_bottom_comment = document_bottom_comment,
+            style = style,
+            html_template = html_template
         )
         message = Message()
 
@@ -1153,7 +1171,10 @@ class SendMsg:
     async def send_multiple_render(
             self,
             messages: Iterable[str | Message],
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = False,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1163,7 +1184,10 @@ class SendMsg:
     async def send_multiple_render(
             self,
             messages: Iterable[str | Message],
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = False,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1172,7 +1196,10 @@ class SendMsg:
     async def send_multiple_render(
             self,
             messages: Iterable[str | Message],
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1181,8 +1208,12 @@ class SendMsg:
         发送多个渲染文本
 
         :param messages: 待发送的消息
+        :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 文档样式
+        :param html_template: HTML模板
         :param reply: 是否回复
+        :param break_code: 返回码
         :param continue_handler: 是否继续
         """
         logger.info(
@@ -1194,7 +1225,10 @@ class SendMsg:
                 asyncio.create_task(
                     self.render_text_to_msg_segment(
                         msg,
-                        document_bottom_comment = document_bottom_comment
+                        title = title,
+                        document_bottom_comment = document_bottom_comment,
+                        style = style,
+                        html_template = html_template
                     )
                 )
             )
@@ -1213,7 +1247,10 @@ class SendMsg:
     async def send_render_prompt(
             self,
             text: str | Message,
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1223,7 +1260,10 @@ class SendMsg:
     async def send_render_prompt(
             self,
             text: str | Message,
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1232,7 +1272,10 @@ class SendMsg:
     async def send_render_prompt(
             self,
             text: str | Message,
+            title: str | None = None,
             document_bottom_comment: str = "",
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1241,8 +1284,12 @@ class SendMsg:
         发送提示消息（渲染为图片）
 
         :param text: 提示消息
+        :param title: 标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 样式
+        :param html_template: HTML模板
         :param reply: 是否回复
+        :param break_code: 返回码
         :param continue_handler: 是否继续处理
         """
         logger.info(
@@ -1250,7 +1297,9 @@ class SendMsg:
         )
         image = await self.render_text_to_msg_segment(
             text,
-            document_bottom_comment = document_bottom_comment
+            document_bottom_comment = document_bottom_comment,
+            style = style,
+            html_template = html_template
         )
         await self._send(
             Message(
@@ -1268,7 +1317,10 @@ class SendMsg:
     async def send_render(
             self,
             text: str | Message,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1278,7 +1330,10 @@ class SendMsg:
     async def send_render(
             self,
             text: str | Message,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1287,7 +1342,10 @@ class SendMsg:
     async def send_render(
             self,
             text: str | Message,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1296,8 +1354,12 @@ class SendMsg:
         发送渲染后的文本
 
         :param text: 渲染文本内容
+        :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 样式
+        :param html_template: HTML模板
         :param reply: 是否携带引用
+        :param break_code: 返回码
         :param continue_handler: 是否继续运行当前处理流程
         """
         logger.info(
@@ -1305,6 +1367,9 @@ class SendMsg:
         )
         image = await self.render_text_to_msg_segment(
             text,
+            title = title,
+            style = style,
+            html_template = html_template,
             document_bottom_comment = document_bottom_comment
         )
         await self._send(
@@ -1374,7 +1439,7 @@ class SendMsg:
             *errors: str | Message | Exception | Response,
             threshold: float | None = None,
             get_error_response: bool = False,
-            document_bottom_comment: str = "",
+            document_bottom_comment: str | None = None,
             reply: bool = True,
             break_code: int = 1,
             continue_handler: Literal[False] = False
@@ -1386,7 +1451,7 @@ class SendMsg:
             *errors: str | Message | Exception | Response,
             threshold: float | None = None,
             get_error_response: bool = False,
-            document_bottom_comment: str = "",
+            document_bottom_comment: str | None = None,
             reply: bool = True,
             break_code: int = 1,
             continue_handler: Literal[True] = True
@@ -1397,7 +1462,10 @@ class SendMsg:
             *errors: str | Message | Exception | Response,
             threshold: float | None = None,
             get_error_response: bool = False,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 1,
             continue_handler: bool = False
@@ -1407,8 +1475,13 @@ class SendMsg:
 
         :param errors: 错误信息
         :param threshold: 长度阈值
+        :param get_error_response: 是否获取错误响应
+        :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 文档样式
+        :param html_template: HTML模板
         :param reply: 是否回复
+        :param break_code: 返回码
         :param continue_handler: 是否继续处理流程
         """
         logger.info(
@@ -1451,10 +1524,10 @@ class SendMsg:
             try:
                 image = await self.render_text_to_msg_segment(
                     text,
-                    document_bottom_comment = document_bottom_comment,
-                    style = storage_configs.render_error_message.style,
-                    html_template = storage_configs.render_error_message.html_template,
-                    title = storage_configs.render_error_message.title
+                    document_bottom_comment = document_bottom_comment or storage_configs.render_error_message.document_bottom_comment,
+                    style = style or storage_configs.render_error_message.style,
+                    html_template = html_template or storage_configs.render_error_message.html_template,
+                    title = title or storage_configs.render_error_message.title
                 )
                 message.append(image)
             except TextRenderException as e:
@@ -1488,7 +1561,10 @@ class SendMsg:
             self,
             message: Message | str,
             threshold: float | None = None,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1499,7 +1575,10 @@ class SendMsg:
             self,
             message: Message | str,
             threshold: float | None = None,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1509,7 +1588,10 @@ class SendMsg:
             self,
             message: Message | str,
             threshold: float | None = None,
-            document_bottom_comment: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1519,7 +1601,10 @@ class SendMsg:
 
         :param message: 消息
         :param threshold: 长度阈值
+        :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 文档样式
+        :param html_template: HTML模板
         :param reply: 是否回复
         :param break_code: 返回码
         :param continue_handler: 是否继续处理流程
@@ -1541,6 +1626,9 @@ class SendMsg:
         if length_score >= threshold:
             await self.send_render(
                 text,
+                title = title,
+                style = style,
+                html_template = html_template,
                 document_bottom_comment = document_bottom_comment,
                 reply = reply,
                 break_code = break_code,
@@ -1558,8 +1646,12 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
-            document_bottom_comments: str = "",
+            title: str | None = None,
+            document_bottom_comments: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1569,8 +1661,12 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
-            document_bottom_comments: str = "",
+            title: str | None = None,
+            document_bottom_comments: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1579,8 +1675,12 @@ class SendMsg:
     async def send_check_length_prompt(
             self,
             prompt: Message | str,
+            code_block: bool = False,
             threshold: float | None = None,
-            document_bottom_comments: str = "",
+            title: str | None = None,
+            document_bottom_comments: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1589,8 +1689,12 @@ class SendMsg:
         发送提示消息并检查长度
 
         :param prompt: 提示消息
+        :param code_block: 当渲染为图片时使用代码块输出
         :param threshold: 长度阈值
+        :param title: 文档标题
         :param document_bottom_comment: 文档底部注释
+        :param style: 样式
+        :param html_template: HTML模板
         :param reply: 是否回复
         :param break_code: 返回码
         :param continue_handler: 是否继续处理
@@ -1611,8 +1715,11 @@ class SendMsg:
         length_score = self.text_length_score(text)
         if length_score >= threshold:
             await self.send_mixed_render(
-                text,
+                f"```\n{text}\n```" if code_block else text,
+                title = title,
                 document_bottom_comment = document_bottom_comments,
+                style = style,
+                html_template = html_template,
                 reply = reply,
                 prompt_mode = True,
                 break_code = break_code,
@@ -1651,6 +1758,10 @@ class SendMsg:
             reasoning_content: str | None = None,
             tools_content: str | None = None,
             content: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
@@ -1662,6 +1773,10 @@ class SendMsg:
             reasoning_content: str | None = None,
             tools_content: str | None = None,
             content: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
@@ -1672,6 +1787,10 @@ class SendMsg:
             reasoning_content: str | None = None,
             tools_content: str | None = None,
             content: str = "",
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
             reply: bool = True,
             break_code: int = 0,
             continue_handler: bool = False
@@ -1682,6 +1801,10 @@ class SendMsg:
         :param reasoning_content: 推理内容
         :param tools_content: 工具内容
         :param content: 文本内容
+        :param title: 标题
+        :param document_bottom_comment: 文档底部注释
+        :param style: 样式
+        :param html_template: HTML模板
         :param reply: 是否回复
         :param break_code: 返回码
         :param continue_handler: 是否继续处理
@@ -1695,6 +1818,10 @@ class SendMsg:
                 asyncio.create_task(
                     self.render_text_to_msg_segment(
                         reasoning_content,
+                        title = title,
+                        document_bottom_comment = document_bottom_comment,
+                        style = style,
+                        html_template = html_template
                     )
                 )
             )
@@ -1704,6 +1831,10 @@ class SendMsg:
                 asyncio.create_task(
                     self.render_text_to_msg_segment(
                         tools_content,
+                        title = title,
+                        document_bottom_comment = document_bottom_comment,
+                        style = style,
+                        html_template = html_template
                     )
                 )
             )
@@ -1714,6 +1845,10 @@ class SendMsg:
                     asyncio.create_task(
                         self.render_text_to_msg_segment(
                             content,
+                        title = title,
+                        document_bottom_comment = document_bottom_comment,
+                        style = style,
+                        html_template = html_template
                         )
                     )
                 )
