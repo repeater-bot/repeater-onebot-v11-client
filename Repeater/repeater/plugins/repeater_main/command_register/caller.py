@@ -4,7 +4,6 @@ import uuid
 import asyncio
 from croniter import croniter
 from datetime import datetime
-from .package import CommandPackage
 from ..assist import (
     PersonaInfo,
     SendMsg,
@@ -32,10 +31,15 @@ from nonebot import get_driver
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from .listen_type import ListenType
 from nonebot import logger
-from .running_package import RunningPackage
-from .sub_cmd_exit import SubCmdBreaked, SubCmdExit
+from .objects import (
+    CommandPackage,
+    ListenType,
+    RunningPackage,
+    SubCmdBreaked,
+    SubCmdExit,
+    ListenerPackage
+)
 from .external_trigger import register_external_trigger, et_server
 from contextvars import ContextVar
 
@@ -57,8 +61,10 @@ class CommandCaller:
     variables: dict[Namespace, Variables[str]] = {}
     variable_lock = asyncio.Lock()
 
-    listen_message_tasks: dict[Namespace, set[asyncio.Future[PersonaInfo]]] = {}
-    listen_lock: asyncio.Lock = asyncio.Lock()
+    message_listener: dict[uuid.UUID, ListenerPackage] = {}
+    message_listener_map: dict[Namespace, set[uuid.UUID]] = {}
+    message_listener_lock: asyncio.Lock = asyncio.Lock()
+
     et_server_task: asyncio.Task | None = None
 
     forward_call_index: dict[uuid.UUID, set[uuid.UUID]] = {}
@@ -120,9 +126,8 @@ class CommandCaller:
             )
         await asyncio.gather(*tasks)
         
-        for listening in cls.listen_message_tasks.values():
-            for task in listening:
-                task.cancel()
+        for listening in cls.message_listener.values():
+            listening.cancel()
 
     @classmethod
     async def on_bot_connect(cls, bot: Bot):
@@ -414,23 +419,37 @@ class CommandCaller:
         return result
     
     @classmethod
-    async def message_future(cls, namespace: Namespace) -> asyncio.Future[PersonaInfo]:
+    async def message_future(cls, namespace: Namespace) -> ListenerPackage:
         """
         Create a Future to wait for the message.
 
         :param namespace: The target of listening.
         :return: The `Future` object.
         """
+        source: uuid.UUID | None = cls._task_id.get()
+        if source is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+        listener_id = uuid.uuid4()
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         future: asyncio.Future[PersonaInfo] = loop.create_future()
-        async with cls.listen_lock:
+
+        listen_package = ListenerPackage(
+            future = future,
+            target = namespace,
+            id = listener_id,
+            sponsor = source
+        )
+
+        async with cls.message_listener_lock:
             logger.info(
                 "Create Wait {namespace} Message Task: {future}",
                 namespace = namespace.namespace_str,
                 future = repr(future),
             )
-            cls.listen_message_tasks.setdefault(namespace, set()).add(future)
-        return future
+            cls.message_listener[listener_id] = listen_package
+            cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
+
+        return listen_package
 
     @classmethod
     async def cancel_wait_message(cls, namespace: Namespace) -> bool:
@@ -440,21 +459,51 @@ class CommandCaller:
         :param namespace: The target of listening.
         :return: Whether the cancel is successful.
         """
-        async with cls.listen_lock:
+        async with cls.message_listener_lock:
             logger.info(
                 "Cancel Wait {namespace} Message Task",
                 namespace = namespace.namespace_str,
             )
-            if namespace in cls.listen_message_tasks:
-                for future in cls.listen_message_tasks[namespace]:
-                    future.cancel()
-                del cls.listen_message_tasks[namespace]
+            if namespace in cls.message_listener_map:
+                listener_ids = cls.message_listener_map[namespace]
+                for listener_id in listener_ids:
+                    listener = cls.message_listener.get(listener_id)
+                    if listener is not None:
+                        listener.cancel()
+                cls.message_listener_map.pop(namespace, None)
                 logger.info(
                     "Cancel Wait {namespace} Message Task Success",
                     namespace = namespace.namespace_str,
                 )
                 return True
+        return False
 
+    @classmethod
+    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+        """
+        Cancel the wait message listener.
+
+        :param listener_id: The listener id.
+        :return: Whether the cancel is successful.
+        """
+        async with cls.message_listener_lock:
+            logger.info(
+                "Cancel Wait Message Task {listener_id}",
+                listener_id = listener_id,
+            )
+            if listener_id in cls.message_listener:
+                listener = cls.message_listener.get(listener_id)
+                if listener is not None:
+                    listener.cancel()
+                    listener_map = cls.message_listener_map.get(listener.target)
+                    if listener_map is not None:
+                        listener_map.discard(listener_id)
+                cls.message_listener.pop(listener_id, None)
+                logger.info(
+                    "Cancel listener: {listener_id}",
+                    listener_id = listener_id,
+                )
+                return True
         return False
 
     @classmethod
@@ -696,7 +745,7 @@ class CommandCaller:
         now_task_id = cls._task_id.get()
         identity = cls._identity.get()
         if now_task_id is None or identity is None:
-            raise RuntimeError("not a horizontal call made within a registered package.")
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
 
         async with cls.call_index_lock:
             childs = cls.forward_call_index.setdefault(now_task_id, set())
@@ -1297,11 +1346,14 @@ class CommandCaller:
         :param persona_info: The `PersonaInfo` object of the message
         """
         namespace = persona_info.namespace
-        if namespace in cls.listen_message_tasks:
-            async with cls.listen_lock:
-                futures: set[asyncio.Future[PersonaInfo]] = cls.listen_message_tasks.pop(namespace)
-                for future in futures:
-                    future.set_result(persona_info)
+        if namespace in cls.message_listener_map:
+            async with cls.message_listener_lock:
+                listener_ids = cls.message_listener_map.pop(namespace)
+                for listener_id in listener_ids:
+                    listener = cls.message_listener.get(listener_id)
+                    if listener:
+                        listener.set_result(persona_info)
+
             logger.info(
                 "{namespace} Message Wait Finished",
                 namespace = namespace.namespace_str,
