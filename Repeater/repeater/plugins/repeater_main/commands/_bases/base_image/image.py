@@ -38,7 +38,8 @@ class GenerateImageBase(CommandPackage):
 
         images: list[FILE_TYPES] = []
         for reply in await persona_info.from_reply_reversed_chain(postcheck = True, break_chain = lambda reply: reply.is_self):
-            prompts.append(reply.message_stripped_str)
+            if not reply.is_self:
+                prompts.append(reply.message_stripped_str)
             images.extend(await self.get_images(reply))
         images.extend(await self.get_images(persona_info))
 
