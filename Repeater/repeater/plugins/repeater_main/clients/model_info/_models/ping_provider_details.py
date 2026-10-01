@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from .ping_provider_statisics import PingProviderStatisics
+from .ping_provider_statistics import PingProviderStatisics
 
 class PingProviderDetails(BaseModel):
     host_names: list[str] = Field(default_factory=list)
