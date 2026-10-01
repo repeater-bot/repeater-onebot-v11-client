@@ -362,6 +362,8 @@ class PersonaInfo:
 
     async def from_message_history(
             self,
+            score: MessageSource,
+            id: str | int = "",
             message_id: int = 0,
             count: int = 20,
             reverse_order: bool = False,
@@ -371,32 +373,27 @@ class PersonaInfo:
         """
         从消息历史构建 PersonaInfo 实例
 
+        :param score: 消息来源
+        :param id: 群组 ID
         :param message_id: 消息 ID
         :param count: 数量
         :param reverse_order: 是否倒序
         :param copydata: 是否复制数据
         :param deepcopy: 是否深拷贝数据
         """
-        namespace = self.namespace
-        match namespace.mode:
+        match score:
             case MessageSource.GROUP:
-                if not namespace.group_id:
-                    raise ValueError("group_id is None")
-                
                 messages = await get_group_message_history(
                     bot = self.cached_api,
-                    group_id = int(namespace.group_id),
+                    group_id = int(id),
                     message_id = message_id,
                     count = count,
                     reverse_order = reverse_order
                 )
             case MessageSource.PRIVATE:
-                if not namespace.user_id:
-                    raise ValueError("user_id is None")
-
                 messages = await get_private_message_history(
                     bot = self.cached_api,
-                    user_id = int(namespace.user_id),
+                    user_id = int(id),
                     message_id = message_id,
                     count = count,
                     reverse_order = reverse_order
