@@ -21,6 +21,14 @@ class Namespace(BaseModel):
     group_id: str | None = None
     user_id: str = ""
 
+    @property
+    def is_group(self) -> bool:
+        return self.mode == MessageSource.GROUP
+
+    @property
+    def is_private(self) -> bool:
+        return self.mode == MessageSource.PRIVATE
+
     @classmethod
     def from_str(cls, string: str) -> "Namespace":
         if storage_configs.hash_namespace_iterations > 0:
