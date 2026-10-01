@@ -21,7 +21,10 @@ from .assist_func import (
     text_content_cutter,
     make_empty_message_event,
     format_time_duration_ns,
-    format_time_duration
+    format_time_duration,
+    make_message_event,
+    get_private_message_history,
+    get_group_message_history,
 )
 from .persona_info import (
     EnterType,
@@ -45,6 +48,7 @@ from .send_msg import (
     SpeedLimiter,
     SendMsg,
     SEND_HOOK,
+    RENDER_HOOK,
     SendingTarget
 )
 from .chattts import (
@@ -114,6 +118,9 @@ __all__ = [
     "make_empty_message_event",
     "format_time_duration_ns",
     "format_time_duration",
+    "make_message_event",
+    "get_private_message_history",
+    "get_group_message_history",
 
     "EnterType",
     "PersonaInfo",
@@ -132,6 +139,7 @@ __all__ = [
     "SpeedLimiter",
     "SendMsg",
     "SEND_HOOK",
+    "RENDER_HOOK",
     "SendingTarget",
     
     "ChatTTSAPI",
