@@ -30,7 +30,7 @@ class FilterMessages(CommandPackage):
     """
     super_permission = True
 
-    pattern = re.compile(r"^(?P<group_or_private>group|user)\s*:\s*(?P<id>\S+?)\s*(?P<message_id>\S*)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$", re.IGNORECASE | re.DOTALL)
+    pattern = re.compile(r"^(?P<group_or_private>group|private)\s*:\s*(?P<id>\S+?)\s*(?P<message_id>\S*)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$", re.IGNORECASE | re.DOTALL)
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         message_input = persona_info.message_stripped_str
