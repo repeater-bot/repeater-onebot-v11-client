@@ -28,7 +28,9 @@ from ..assist_func import (
     get_message_event,
     generates_text_from_messages_list,
     get_reply_chain,
-    make_empty_message_event
+    make_empty_message_event,
+    get_private_message_history,
+    get_group_message_history,
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -356,6 +358,61 @@ class PersonaInfo:
                 deepcopy = deepcopy
             )
             yield instance
+
+    async def from_message_history(
+            self,
+            message_id: int = 0,
+            count: int = 20,
+            reverse_order: bool = False,
+            copydata: bool = False,
+            deepcopy: bool = False
+        ) -> list[PersonaInfo]:
+        """
+        从消息历史构建 PersonaInfo 实例
+
+        :param message_id: 消息 ID
+        :param count: 数量
+        :param reverse_order: 是否倒序
+        :param copydata: 是否复制数据
+        :param deepcopy: 是否深拷贝数据
+        """
+        namespace = self.namespace
+        match namespace.mode:
+            case MessageSource.GROUP:
+                if not namespace.group_id:
+                    raise ValueError("group_id is None")
+                
+                messages = await get_group_message_history(
+                    bot = self.cached_api,
+                    group_id = int(namespace.group_id),
+                    message_id = message_id,
+                    count = count,
+                    reverse_order = reverse_order
+                )
+            case MessageSource.PRIVATE:
+                if not namespace.user_id:
+                    raise ValueError("user_id is None")
+
+                messages = await get_private_message_history(
+                    bot = self.cached_api,
+                    user_id = int(namespace.user_id),
+                    message_id = message_id,
+                    count = count,
+                    reverse_order = reverse_order
+                )
+
+            case _:
+                raise ValueError("unknown message source")
+
+        return [
+            self.copy(
+                bot = self.bot,
+                event = event,
+                args = None,
+                copydata = copydata,
+                deepcopy = deepcopy
+            ) for event in messages
+        ]
     
     async def from_reply(self) -> PersonaInfo | None:
         """
