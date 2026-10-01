@@ -1,7 +1,8 @@
+import time
 import base64
 
 from nonebot.adapters.onebot.v11 import MessageSegment
-from ....assist import PersonaInfo, SendMsg, Response
+from ....assist import PersonaInfo, SendMsg, Response, format_time_duration_ns
 from ....cmd_info import CmdTypes
 from ....command_register import(
     CommandPackage
@@ -38,7 +39,8 @@ class GenerateImageBase(CommandPackage):
 
         images: list[FILE_TYPES] = []
         for reply in await persona_info.from_reply_reversed_chain(postcheck = True, break_chain = lambda reply: reply.is_self):
-            prompts.append(reply.message_stripped_str)
+            if not reply.is_self:
+                prompts.append(reply.message_stripped_str)
             images.extend(await self.get_images(reply))
         images.extend(await self.get_images(persona_info))
 
@@ -136,7 +138,13 @@ class GenerateImageBase(CommandPackage):
                 )
         return gen_images
 
-    async def send_images(self, persona_info: PersonaInfo, send_msg: SendMsg, response: ImagesResponse):
+    async def send_result(
+            self,
+            persona_info: PersonaInfo,
+            send_msg: SendMsg,
+            response: ImagesResponse,
+            task_time: int,
+        ):
         if response.data is not None:
             output_images = await self.parse_response(
                 datas = response.data
@@ -148,6 +156,7 @@ class GenerateImageBase(CommandPackage):
         segments = [
             MessageSegment.text("Generated image:"),
             *[MessageSegment.image(image) for image in output_images],
+            MessageSegment.text(f"Time: {format_time_duration_ns(task_time, use_abbreviation = True)}")
         ]
 
         if response.usage is not None:
@@ -167,21 +176,24 @@ class GenerateImageBase(CommandPackage):
         image_client = await self.get_client(persona_info)
         images, prompt = await self.get_prompt(persona_info, send_msg)
 
+        start_generate_time = time.perf_counter_ns()
         response = await self.generate_image(
             images = images,
             prompt = prompt,
             image_client = image_client
         )
+        end_generate_time = time.perf_counter_ns()
 
         if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error_response(response)
             else:
-                    await self.send_images(
-                        persona_info = persona_info,
-                        send_msg = send_msg,
-                        response = data
-                    )
+                await self.send_result(
+                    persona_info = persona_info,
+                    send_msg = send_msg,
+                    response = data,
+                    task_time = end_generate_time - start_generate_time
+                )
         else:
             await send_msg.send_error_response(response)

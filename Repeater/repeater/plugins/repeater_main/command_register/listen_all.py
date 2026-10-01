@@ -1,6 +1,6 @@
 import asyncio
-from .package import CommandPackage
-from .listen_type import ListenType
+from .objects.package import CommandPackage
+from .objects.listen_type import ListenType
 from .caller import CommandCaller
 from ..cmd_info import CmdTypes
 from ..assist import PersonaInfo, SendMsg, SendingTarget

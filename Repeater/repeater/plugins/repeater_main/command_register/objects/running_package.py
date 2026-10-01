@@ -8,7 +8,7 @@ from typing import (
     Any
 )
 from .package import CommandPackage
-from ..assist import PersonaInfo, SendMsg
+from ...assist import PersonaInfo, SendMsg
 from nonebot.matcher import Matcher
 from dataclasses import dataclass
 
