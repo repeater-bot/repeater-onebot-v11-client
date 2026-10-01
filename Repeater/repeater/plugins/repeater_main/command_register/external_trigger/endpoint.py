@@ -46,7 +46,7 @@ async def external_trigger_call(request: ExternalTriggerRequest):
         sub_type = request.sub_type,
     )
 
-    results, retcode = await callback(
+    results, rendered_texts, retcode = await callback(
         request.handler,
         event,
         args
@@ -54,5 +54,6 @@ async def external_trigger_call(request: ExternalTriggerRequest):
 
     return ExternalTriggerResponse(
         messages = [str(result) for result in results],
+        rendered_texts = rendered_texts,
         retcode = retcode
     )

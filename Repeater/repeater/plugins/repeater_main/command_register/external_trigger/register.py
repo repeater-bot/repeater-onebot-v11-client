@@ -8,7 +8,7 @@ CALLABLE_TYPE = Callable[
         Message | None
     ],
     Awaitable[
-        tuple[list[Message], int]
+        tuple[list[Message], list[str], int]
     ]
 ]
 
