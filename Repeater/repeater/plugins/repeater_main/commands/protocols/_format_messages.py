@@ -13,9 +13,12 @@ def format_messages(message_history: list[PersonaInfo], pattern: re.Pattern) -> 
         message_buffer.extend(
             obj = [
                 MessageSegment.text(
-                    text=f"{message.display_name}: [{message.time.isoformat()}|id:{message.message_id}]"
+                    text=f"{message.display_name}: [{message.time.isoformat()}|id:{message.message_id}]\n"
                 ),
-                *message.message
+                *message.message,
+                MessageSegment.text(
+                    text="\n"
+                )
             ]
         )
     
