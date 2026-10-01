@@ -112,12 +112,17 @@ class PersonaInfo:
         self._self_id: str = bot.self_id
 
         if self._source == MessageSource.GROUP:
+            model_dump = event.model_dump()
             try:
-                self._group_id = str(event.model_dump()["group_id"])
+                self._group_id = str(model_dump["group_id"])
                 if self._group_id is None:
                     raise ValueError("Is Group, But Group ID is None")
             except KeyError:
                 raise ValueError("Is Group, But Group ID is Not Found")
+            try:
+                self._group_name = str(model_dump["group_name"])
+            except KeyError:
+                self._group_name = None
         
         self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
         self._user_config_loader = UserConfigLoader(self.namespace)
@@ -507,9 +512,14 @@ class PersonaInfo:
         """
         当前群号
         """
-        if self._group_id is None:
-            return None
         return self._group_id
+
+    @property
+    def group_name(self) -> str | None:
+        """
+        当前群名
+        """
+        return self._group_name
     
     @property
     def user_id(self) -> str:
@@ -994,7 +1004,8 @@ class PersonaInfo:
             message_id = message_id if message_id is not None else self.message_id
         )
 
-    def make_message(self, message: str | Iterable[MessageSegment] | MessageSegment | None = None) -> Message:
+    @staticmethod
+    def make_message(message: str | Iterable[MessageSegment] | MessageSegment | None = None) -> Message:
         """
         生成消息
 
