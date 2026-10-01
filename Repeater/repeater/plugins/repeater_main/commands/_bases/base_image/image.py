@@ -156,7 +156,7 @@ class GenerateImageBase(CommandPackage):
         segments = [
             MessageSegment.text("Generated image:"),
             *[MessageSegment.image(image) for image in output_images],
-            MessageSegment.text(f"Time: {format_time_duration_ns(task_time, use_abbreviation = True)}")
+            MessageSegment.text(f"Time: {format_time_duration_ns(task_time, use_abbreviation = True)}\n")
         ]
 
         if response.usage is not None:
@@ -166,10 +166,14 @@ class GenerateImageBase(CommandPackage):
                 )
             )
 
+        message = persona_info.make_message(
+            message = segments
+        )
+
+        message.reduce()
+
         await send_msg.send_any(
-            persona_info.make_message(
-                message = segments
-            )
+            message = message
         )
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):

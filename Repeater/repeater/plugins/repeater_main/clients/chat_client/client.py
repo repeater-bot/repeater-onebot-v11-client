@@ -46,6 +46,11 @@ class ChatClient(BaseClient):
         extra_template_fields_copy.update(
             {
                 "message_type": self._persona_info.source.value,
+                "persona_group_id": self._persona_info.group_id,
+                "persona_group_name": self._persona_info.group_name,
+                "persona_user_id": self._persona_info.user_id,
+                "persona_user_name": self._persona_info.display_name,
+                "namespace": self._persona_info.namespace,
                 "adaptation_version": __adaptation__,
                 "adaptation_info": __adaptation_text__,
             }

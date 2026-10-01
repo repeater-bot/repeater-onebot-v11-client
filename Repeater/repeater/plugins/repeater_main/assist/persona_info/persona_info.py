@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import uuid
 
+from datetime import datetime
 from nonebot import get_bots
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.onebot.v11 import (
@@ -28,7 +29,9 @@ from ..assist_func import (
     get_message_event,
     generates_text_from_messages_list,
     get_reply_chain,
-    make_empty_message_event
+    make_empty_message_event,
+    get_private_message_history,
+    get_group_message_history,
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -109,12 +112,17 @@ class PersonaInfo:
         self._self_id: str = bot.self_id
 
         if self._source == MessageSource.GROUP:
+            model_dump = event.model_dump()
             try:
-                self._group_id = str(event.model_dump()["group_id"])
+                self._group_id = str(model_dump["group_id"])
                 if self._group_id is None:
                     raise ValueError("Is Group, But Group ID is None")
             except KeyError:
                 raise ValueError("Is Group, But Group ID is Not Found")
+            try:
+                self._group_name = str(model_dump["group_name"])
+            except KeyError:
+                self._group_name = None
         
         self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
         self._user_config_loader = UserConfigLoader(self.namespace)
@@ -356,6 +364,58 @@ class PersonaInfo:
                 deepcopy = deepcopy
             )
             yield instance
+
+    async def from_message_history(
+            self,
+            score: MessageSource,
+            id: str | int = "",
+            message_id: int = 0,
+            count: int = 20,
+            reverse_order: bool = False,
+            copydata: bool = False,
+            deepcopy: bool = False
+        ) -> list[PersonaInfo]:
+        """
+        从消息历史构建 PersonaInfo 实例
+
+        :param score: 消息来源
+        :param id: 群组 ID
+        :param message_id: 消息 ID
+        :param count: 数量
+        :param reverse_order: 是否倒序
+        :param copydata: 是否复制数据
+        :param deepcopy: 是否深拷贝数据
+        """
+        match score:
+            case MessageSource.GROUP:
+                messages = await get_group_message_history(
+                    bot = self.cached_api,
+                    group_id = int(id),
+                    message_id = message_id,
+                    count = count,
+                    reverse_order = reverse_order
+                )
+            case MessageSource.PRIVATE:
+                messages = await get_private_message_history(
+                    bot = self.cached_api,
+                    user_id = int(id),
+                    message_id = message_id,
+                    count = count,
+                    reverse_order = reverse_order
+                )
+
+            case _:
+                raise ValueError("unknown message source")
+
+        return [
+            self.copy(
+                bot = self.bot,
+                event = event,
+                args = None,
+                copydata = copydata,
+                deepcopy = deepcopy
+            ) for event in messages
+        ]
     
     async def from_reply(self) -> PersonaInfo | None:
         """
@@ -452,9 +512,14 @@ class PersonaInfo:
         """
         当前群号
         """
-        if self._group_id is None:
-            return None
         return self._group_id
+
+    @property
+    def group_name(self) -> str | None:
+        """
+        当前群名
+        """
+        return self._group_name
     
     @property
     def user_id(self) -> str:
@@ -520,6 +585,20 @@ class PersonaInfo:
         Bot 实例（带 API 请求缓存）
         """
         return self._cached_api
+
+    @property
+    def timestamp(self) -> int:
+        """
+        消息时间戳
+        """
+        return self._message_event.time
+
+    @property
+    def time(self) -> datetime:
+        """
+        消息时间
+        """
+        return datetime.fromtimestamp(self.timestamp)
     
     @property
     def bots(self) -> dict[str, BaseBot]:
@@ -925,7 +1004,8 @@ class PersonaInfo:
             message_id = message_id if message_id is not None else self.message_id
         )
 
-    def make_message(self, message: str | Iterable[MessageSegment] | MessageSegment | None = None) -> Message:
+    @staticmethod
+    def make_message(message: str | Iterable[MessageSegment] | MessageSegment | None = None) -> Message:
         """
         生成消息
 

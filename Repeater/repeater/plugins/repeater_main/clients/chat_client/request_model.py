@@ -51,6 +51,14 @@ class ChatRequestModel(BaseModel):
         if self.add_metadata:
             message_buffer.append("> MessageMetadata:")
             message_buffer.append(">     Message Type: {{message_type}}")
+            message_buffer.append("{% if message_type == \"group\" -%}")
+            message_buffer.append(">     Group: {{persona_group_name}}({{persona_group_id}})")
+            message_buffer.append(">     User: {{persona_user_name}}({{persona_user_id}})")
+            message_buffer.append("{% elif message_type == \"user\" -%}")
+            message_buffer.append(">     User: {{persona_user_name}}({{persona_user_id}})")
+            message_buffer.append("{% else -%}")
+            message_buffer.append(">     Namespace: {{namespace}}")
+            message_buffer.append("{% endif -%}")
             message_buffer.append(">     Message Sending time:{{time()}}")
             if storage_configs.usage_group_context:
                 message_buffer.append(">     Now User: {{user_name}}({{nick_name}})")

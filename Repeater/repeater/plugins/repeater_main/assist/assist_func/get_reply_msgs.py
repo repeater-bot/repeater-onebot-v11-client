@@ -5,5 +5,7 @@ async def get_reply_msgs(bot: Bot, message: Message) -> list[MessageEvent]:
     msgs: list[MessageEvent] = []
     for msg in message:
         if msg.type == "reply":
-            msgs.append(await get_message_event(bot, msg.data["id"]))
+            msgs.append(
+                await get_message_event(bot, msg.data["id"])
+            )
     return msgs

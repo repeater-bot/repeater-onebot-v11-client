@@ -27,6 +27,11 @@ from .format_time_duration import (
     format_time_duration_ns,
     format_time_duration
 )
+from .make_message_event import make_message_event
+from .get_message_history import (
+    get_private_message_history,
+    get_group_message_history,
+)
 
 __all__ = [
     "at_with_name",
@@ -52,4 +57,7 @@ __all__ = [
     "make_empty_message_event",
     "format_time_duration_ns",
     "format_time_duration",
+    "make_message_event",
+    "get_group_message_history",
+    "get_private_message_history",
 ]
