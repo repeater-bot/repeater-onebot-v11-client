@@ -1,6 +1,6 @@
 import re
 
-from ...assist import PersonaInfo, SendMsg, Namespace
+from ...assist import PersonaInfo, SendMsg, MessageSource
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
@@ -24,30 +24,33 @@ class FilterMessages(CommandPackage):
 
     Usage: 
     ```
-    /{cmd} namespace message_id:count regex
+    /{cmd} group/user:id message_id:count regex
     ```
     """
+    super_permission = True
 
-    pattern = re.compile(r"^(?P<namespace>\S+)\s+(?P<message_id>\S*)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$")
+    pattern = re.compile(r"^(?P<group_or_user>group|user)\s*:\s*(?P<id>\S+)\s+(?P<message_id>\S*)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$")
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         message_input = persona_info.message_stripped_str
         match_result = self.pattern.match(message_input)
         if match_result:
-            namespace_str = match_result.group("namespace")
+            group_or_user = match_result.group("group_or_user")
+            id = match_result.group("id")
             message_id_str = match_result.group("message_id")
             count_str = match_result.group("count")
             regex = match_result.group("regex")
 
-            assert isinstance(namespace_str, str), "namespace must be str"
+            assert isinstance(group_or_user, str), "group_or_user must be str"
+            assert isinstance(id, str), "id must be str"
             assert isinstance(message_id_str, str), "message_id must be str"
             assert isinstance(count_str, str), "count_str must be str"
             assert isinstance(regex, str), "regex must be str"
 
             try:
-                namespace = Namespace.from_str(namespace_str)
+                source = MessageSource(group_or_user)
             except ValueError:
-                await send_msg.send_text(f"Invalid namespace: {namespace_str}")
+                await send_msg.send_error("source must be group or user")
                 return
 
             message_id = int(message_id_str) if message_id_str else 0
@@ -63,6 +66,8 @@ class FilterMessages(CommandPackage):
             pattern = re.compile(regex)
 
             message_history = await persona_info.from_message_history(
+                source,
+                id,
                 message_id = message_id,
                 count = count,
                 reverse_order = reverse_order,
