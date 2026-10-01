@@ -11,8 +11,8 @@ from ...command_register import(
 class FilterMessages(CommandPackage):
     cmd = "filterMessages"
     aliases = {
-        "fltmsg",
-        "FLTMSG",
+        "fm",
+        "FM",
         "filter_messages",
         "Filter_Messages",
         "FilterMessages",
@@ -28,7 +28,7 @@ class FilterMessages(CommandPackage):
     ```
     """
 
-    pattern = re.compile(r"^(?P<namespace>\S+)\s+(?P<message_id>\S+)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$")
+    pattern = re.compile(r"^(?P<namespace>\S+)\s+(?P<message_id>\S*)\s*:\s*(?P<count>\d+)\s+(?P<regex>.+)$")
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         message_input = persona_info.message_stripped_str
