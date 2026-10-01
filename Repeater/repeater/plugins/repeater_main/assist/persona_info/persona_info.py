@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import uuid
 
+from datetime import datetime
 from nonebot import get_bots
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.onebot.v11 import (
@@ -577,6 +578,20 @@ class PersonaInfo:
         Bot 实例（带 API 请求缓存）
         """
         return self._cached_api
+
+    @property
+    def timestamp(self) -> int:
+        """
+        消息时间戳
+        """
+        return self._message_event.time
+
+    @property
+    def time(self) -> datetime:
+        """
+        消息时间
+        """
+        return datetime.fromtimestamp(self.timestamp)
     
     @property
     def bots(self) -> dict[str, BaseBot]:
