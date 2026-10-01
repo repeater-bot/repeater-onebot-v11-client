@@ -144,7 +144,7 @@ class CommandCaller:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
-            messages, result = await cls.external_enter(
+            messages, rendered_texts, result = await cls.external_enter(
                 package = package,
                 bot = bot,
                 event = event,
@@ -156,7 +156,7 @@ class CommandCaller:
             if isinstance(result, SubCmdExit):
                 retcode = result.code
 
-            return messages, retcode
+            return messages, rendered_texts, retcode
 
         
         register_external_trigger.register(
@@ -853,7 +853,7 @@ class CommandCaller:
         event: MessageEvent,
         args: Message | None = None,
         debug_mode: bool | None = None
-    ) -> tuple[list[Message], T_Handler_Result | Any]:
+    ) -> tuple[list[Message], list[str], T_Handler_Result | Any]:
         """
         Horizontal call handler and waiting for the running package to created.
 
@@ -880,12 +880,31 @@ class CommandCaller:
         )
 
         outputs: list[Message] = []
-        async def get_message_outputs(message: Message, target: SendingTarget):
+        async def get_message_outputs(target: SendingTarget, message: Message):
             nonlocal outputs
             outputs.append(message)
 
+        rendered_texts: list[str] = []
+        async def get_rendered_text(
+            text: str,
+            style: str | None = None,
+            image_expiry_time: int | None = None,
+            html_template: str | None = None,
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            width: int | None = None,
+            height: int | None = None,
+            direct_output: bool | None = None,
+            no_pre_labels: bool | None = None,
+            no_escape: bool | None = None,
+            quality: int | None = None
+        ):
+            nonlocal rendered_texts
+            rendered_texts.append(text)
+
         send_msg_copy = send_msg.copy(
-            send_hook = get_message_outputs
+            send_hook = get_message_outputs,
+            render_hook = get_rendered_text
         )
 
         result = await cls.run_handle(
@@ -895,7 +914,7 @@ class CommandCaller:
             send_msg = send_msg_copy,
             debug_mode = debug_mode
         )
-        return outputs, result
+        return outputs, rendered_texts, result
 
     
     @staticmethod
