@@ -1187,8 +1187,8 @@ class CommandCaller:
         :param cmd_type: Command type
         :param package: Package
         """
-        types_list: list[Type[CommandPackage[Any]]] = cls.types.setdefault(cmd_type, [])
-        types_list.append(package)
+        types_list: set[Type[CommandPackage[Any]]] = cls.types.setdefault(cmd_type, set())
+        types_list.add(package)
     
     @classmethod
     def _reg_triggers(cls, trigger: str | tuple[str, ...], package: Type[CommandPackage[T_Handler_Result]]) -> None:
