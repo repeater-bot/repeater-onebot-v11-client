@@ -427,7 +427,8 @@ class SendMsg:
         """
         if not isinstance(sending_target, SendingTarget):
             raise TypeError(f"sending_target must be SendingTarget, not {type(sending_target).__name__}")
-        
+
+        self._sending_target = sending_target
         match self._sending_target:
             case SendingTarget.AUTO:
                 if self._matcher is None:
