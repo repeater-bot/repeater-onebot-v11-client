@@ -229,13 +229,13 @@ class SendMsg:
         self._render_hook: RENDER_HOOK | None = render_hook
         
         self._buffer: asyncio.Queue[SendingBufferUnit] = asyncio.Queue()
-        self.sending_target: SendingTarget = send_target
-        match self.sending_target:
+        self._sending_target: SendingTarget = send_target
+        match self._sending_target:
             case SendingTarget.AUTO:
                 if matcher is None:
-                    self.sending_target = SendingTarget.API
+                    self._sending_target = SendingTarget.API
                 else:
-                    self.sending_target = SendingTarget.MATCHER
+                    self._sending_target = SendingTarget.MATCHER
             case SendingTarget.MATCHER:
                 if matcher is None:
                     raise ValueError("Matcher can't be a target, because it's not given.")
@@ -250,7 +250,7 @@ class SendMsg:
             ("suffix", self._suffix),
             ("target_group", self._target_group),
             ("target_user", self._target_user),
-            ("sending_target", self.sending_target),
+            ("sending_target", self._sending_target),
             ("send_hook", self._send_hook),
             ("render_hook", self._render_hook),
         ]
@@ -276,7 +276,7 @@ class SendMsg:
         reply = reply if not is_no_give(reply) else self._reply
         prefix = prefix if not is_no_give(prefix) else self._prefix
         suffix = suffix if not is_no_give(suffix) else self._suffix
-        send_target = send_target if not is_no_give(send_target) else self.sending_target
+        send_target = send_target if not is_no_give(send_target) else self._sending_target
         target_group = target_group if not is_no_give(target_group) else self._target_group
         target_user = target_user if not is_no_give(target_user) else self._target_user
         send_hook = send_hook if not is_no_give(send_hook) else self._send_hook
@@ -412,6 +412,31 @@ class SendMsg:
             self._matcher = matcher
         else:
             raise TypeError(f"matcher must be Matcher or None, not {type(matcher).__name__}")
+
+    @property
+    def sending_target(self) -> SendingTarget:
+        """
+        当前消息的发送目标
+        """
+        return self._sending_target
+
+    @sending_target.setter
+    def sending_target(self, sending_target: SendingTarget):
+        """
+        设置当前消息的发送目标
+        """
+        if not isinstance(sending_target, SendingTarget):
+            raise TypeError(f"sending_target must be SendingTarget, not {type(sending_target).__name__}")
+        
+        match self._sending_target:
+            case SendingTarget.AUTO:
+                if self._matcher is None:
+                    self._sending_target = SendingTarget.API
+                else:
+                    self._sending_target = SendingTarget.MATCHER
+            case SendingTarget.MATCHER:
+                if self._matcher is None:
+                    raise ValueError("Matcher can't be a target, because it's not given.")
     
     @property
     def buffer(self) -> asyncio.Queue[SendingBufferUnit]:
@@ -2197,9 +2222,9 @@ class SendMsg:
         if self._persona_info.enter_type != EnterType.External and reply:
             send_msg = self._reply + send_msg
 
-        if self._send_hook is not None and self.sending_target != SendingTarget.NULL:
+        if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
             hook_result = await self._send_hook(
-                target = self.sending_target,
+                target = self._sending_target,
                 message = send_msg,
             )
             if hook_result is False:
@@ -2238,7 +2263,7 @@ class SendMsg:
 
         :param message: 消息对象
         """
-        match self.sending_target:
+        match self._sending_target:
             case SendingTarget.BUFFER:
                 logger.info(
                     "Send to buffer: \n{message}",
