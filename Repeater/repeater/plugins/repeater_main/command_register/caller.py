@@ -50,7 +50,7 @@ class CommandCaller:
     triggers: dict[str | tuple[str, ...], Type[CommandPackage[Any]]] = {}
     class_names: dict[str, Type[CommandPackage[Any]]] = {}
     classes: set[type[CommandPackage[Any]]] = set()
-    types: dict[CmdTypes, list[Type[CommandPackage[Any]]]] = {}
+    types: dict[CmdTypes, set[Type[CommandPackage[Any]]]] = {}
     matchers: dict[Type[CommandPackage[Any]], Type[Matcher]] = {}
     components: dict[str, Type[CommandPackage[Any]]] = {}
 
@@ -233,26 +233,6 @@ class CommandCaller:
         :return: command package
         """
         return cls.components[component]
-
-    @classmethod
-    def cancel(cls, namespace: Namespace, task: uuid.UUID | RunningPackage):
-        """
-        Cancel a task.
-
-        :param namespace: namespace
-        :param task: task
-        """
-        if isinstance(task, uuid.UUID):
-            task_id = task
-        elif isinstance(task, RunningPackage):
-            task_id = task.task_id
-        else:
-            raise TypeError("task must be uuid.UUID or RunningPackage")
-
-        if namespace in cls.running_map:
-            if task_id in cls.running_map[namespace]:
-                if task_id in cls.runnings:
-                    cls.running_map[namespace].remove(task_id)
 
     @classmethod
     async def has_running_task(cls, namespace: Namespace, task: uuid.UUID) -> bool:
@@ -1120,7 +1100,8 @@ class CommandCaller:
         """
         package_instance: CommandPackage[Any] = cls.commands.pop(package)
         main_trigger: Type[CommandPackage[Any]] = cls.triggers.pop(package.cmd)
-        types: list[Type[CommandPackage[Any]]] = cls.types.pop(package_instance.cmd_type)
+        if package_instance.cmd_type in cls.types:
+            cls.types[package_instance.cmd_type].discard(package)
         triggers: list[Type[CommandPackage[T_Handler_Result]]] = []
         components: Type[CommandPackage[Any]] = cls.components.pop(package_instance.component)
         if package_instance.aliases is not None:
