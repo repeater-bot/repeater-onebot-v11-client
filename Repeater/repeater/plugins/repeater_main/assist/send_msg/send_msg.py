@@ -445,16 +445,6 @@ class SendMsg:
         """
         return self._buffer
     
-    @buffer.setter
-    def buffer(self, buffer: asyncio.Queue[SendingBufferUnit]):
-        """
-        设置当前消息的缓冲区
-        """
-        if isinstance(buffer, asyncio.Queue):
-            self._buffer = buffer
-        else:
-            raise TypeError(f"buffer must be asyncio.Queue, not {type(buffer).__name__}")
-    
     async def get_hello_content(self) -> str:
         """
         获取每日问候语
