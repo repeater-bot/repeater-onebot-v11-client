@@ -446,7 +446,7 @@ class CommandCaller:
                 namespace = namespace.namespace_str,
                 future = repr(future),
             )
-            
+
             if listen_group:
                 if namespace.is_group and namespace.group_id is not None:
                     cls.group_message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
@@ -477,6 +477,10 @@ class CommandCaller:
                     listener = cls.message_listener.get(listener_id)
                     if listener is not None:
                         listener.cancel()
+                        if listener.target.group_id is not None:
+                            group_listener_map = cls.group_message_listener_map.get(listener.target.group_id)
+                            if group_listener_map is not None:
+                                group_listener_map.discard(listener_id)
                 cls.message_listener_map.pop(namespace, None)
                 logger.info(
                     "Cancel Wait {namespace} Message Task Success",
@@ -505,6 +509,10 @@ class CommandCaller:
                     listener_map = cls.message_listener_map.get(listener.target)
                     if listener_map is not None:
                         listener_map.discard(listener_id)
+                    if listener.target.group_id is not None:
+                        group_listener_map = cls.group_message_listener_map.get(listener.target.group_id)
+                        if group_listener_map is not None:
+                            group_listener_map.discard(listener_id)
                 cls.message_listener.pop(listener_id, None)
                 logger.info(
                     "Cancel listener: {listener_id}",
