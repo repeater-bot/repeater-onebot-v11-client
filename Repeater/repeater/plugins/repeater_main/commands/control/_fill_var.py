@@ -14,7 +14,7 @@ def fill_var(info: PersonaInfo, vars: Variables) -> PersonaInfo:
         var_name = match_group.group(1)
         return variables.get(var_name, "")
 
-    messages: list[str] = info.message_cqcode.splitlines()
+    messages: list[str] = info.message_cqcode.split("\n")  # 不能用 splitlines(): 它会把 \v \f \r \x1c \u2028 等也当成换行
     new_messages: list[str] = []
     for line in messages:
         if not line.startswith(" "):
