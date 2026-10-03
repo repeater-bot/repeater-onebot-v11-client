@@ -106,6 +106,7 @@ class PersonaInfo:
             self._args = None
         
         self._group_id: str | None = None
+        self._group_name: str | None = None
         self._source = MessageSource(event.message_type.strip().lower())
         self._enter_type: EnterType = enter_type
         self._raw_message_event: MessageEvent | None = None
@@ -119,6 +120,7 @@ class PersonaInfo:
                     raise ValueError("Is Group, But Group ID is None")
             except KeyError:
                 raise ValueError("Is Group, But Group ID is Not Found")
+            
             try:
                 self._group_name = str(model_dump["group_name"])
             except KeyError:

@@ -50,7 +50,7 @@ class ChatClient(BaseClient):
                 "persona_group_name": self._persona_info.group_name,
                 "persona_user_id": self._persona_info.user_id,
                 "persona_user_name": self._persona_info.display_name,
-                "namespace": self._persona_info.namespace,
+                "namespace": self._persona_info.namespace_str,
                 "adaptation_version": __adaptation__,
                 "adaptation_info": __adaptation_text__,
             }
