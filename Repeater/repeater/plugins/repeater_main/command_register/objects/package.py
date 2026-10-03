@@ -8,6 +8,7 @@ from abc import (
 )
 from ...assist import (
     PersonaInfo,
+    EnterType,
     SendMsg,
     SendingTarget,
     MessageSource,
@@ -409,8 +410,13 @@ class CommandPackage(ABC, Generic[T]):
         """
         if isinstance(exception, ActionFailed):
             await send_msg.send_error_render(exception)
-        else:
+        elif persona_info.enter_type != EnterType.External:
             raise
+        else:
+            logger.exception(
+                "NoneBotException: {message}",
+                message = str(exception),
+            )
 
     async def on_repeater_exception(self, exception: RepeaterException, persona_info: PersonaInfo, send_msg: SendMsg) -> T | Any | None | NoReturn:
         """
