@@ -81,9 +81,38 @@ class BaseClient:
                 errors = errors
             )
         )
+
+    
+    def join_url_static(
+        self,
+        *urls: str,
+        base_url: str | None = None,
+        escape: bool = True,
+        add_slashes: bool = True,
+        follow_slashes: bool = False,
+        safe: str | Iterable[int] = "/",
+        encoding: str | None = None,
+        errors: str | None = None
+    ) -> str:
+        other_url = self._join_url_static(
+            *urls,
+            add_slashes = add_slashes,
+            follow_slashes = follow_slashes,
+            escape = escape,
+            safe = safe,
+            encoding = encoding,
+            errors = errors
+        )
+        if base_url is not None:
+            return urljoin(
+                base_url,
+                other_url
+            )
+        else:
+            return other_url
     
     @staticmethod
-    def join_url_static(
+    def _join_url_static(
         *urls: str,
         escape: bool = True,
         add_slashes: bool = True,
