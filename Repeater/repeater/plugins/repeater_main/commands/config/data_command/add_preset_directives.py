@@ -59,7 +59,8 @@ class AddPresetDirectives(BaseConfig):
             send_msg.break_handler()
         for name, value in update_directives.items():
             if name in raw_value:
-                raw_value[name].append(value)
+                if not value in raw_value[name]:
+                    raw_value[name].append(value)
             else:
                 raw_value[name] = [value]
         return raw_value
