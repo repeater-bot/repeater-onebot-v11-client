@@ -1397,7 +1397,7 @@ class CommandCaller:
                     )
                 )
 
-            if namespace.is_group and namespace.group_id and namespace.group_id in cls.message_listener_map:
+            if namespace.is_group and namespace.group_id and namespace.group_id in cls.group_message_listener_map:
                 group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
 
                 listeners.extend(
