@@ -7,7 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment, Message
 from nonebot.internal.matcher.matcher import Matcher
-from nonebot.exception import FinishedException, ActionFailed
+from nonebot.exception import (
+    FinishedException,
+    StopPropagation,
+    ActionFailed
+)
 
 from ..assist_func import (
     text_length_score,
@@ -2008,6 +2012,18 @@ class SendMsg:
             "Handler finished"
         )
         raise FinishedException
+
+    @staticmethod
+    def block_propagation() -> NoReturn:
+        """
+        阻止事件向低优先级节点传播
+
+        :raise: StopPropagation
+        """
+        logger.info(
+            "Stop propagation"
+        )
+        raise StopPropagation
 
     @staticmethod
     def break_handler(code: int = 0) -> NoReturn:
