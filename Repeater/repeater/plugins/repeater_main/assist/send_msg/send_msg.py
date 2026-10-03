@@ -2004,7 +2004,7 @@ class SendMsg:
     @staticmethod
     def handler_finished() -> NoReturn:
         """
-        跳出当前处理函数
+        关闭整个处理流程树
 
         :raise: FinishedException
         """

@@ -2,7 +2,7 @@ import asyncio
 
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.internal.matcher.matcher import Matcher
-from typing import NoReturn, Type, Callable
+from typing import NoReturn, Type, Callable, overload, Literal
 
 from ....assist import (
     PersonaInfo,
@@ -123,13 +123,37 @@ class ChatSendMsg(SendMsg):
         if self._data is None:
             return ""
         return self._data.request_statistics
+
+    @overload
+    async def send(
+            self,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False,
+        ) -> NoReturn: ...
+
+    @overload
+    async def send(
+            self,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True,
+        ) -> None: ...
     
-    async def send(self) -> NoReturn:
+    async def send(
+            self,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
         await self._check_response()
 
         content = self.content
         if content is None:
-            self.handler_finished()
+            if continue_handler:
+                return
+            else:
+                self.break_handler()
 
         score = self.text_length_score(content)
         threshold = self.text_length_score_threshold
@@ -137,28 +161,59 @@ class ChatSendMsg(SendMsg):
         if score >= threshold:
             logger.warning(f"Response content score to high: {score}, Expected to be below {threshold} ")
             logger.warning("The text will be rendered as an image output.")
-            await self.send_image_mode()
+            await self.send_image_mode(
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
+            )
         else:
-            await self.send_text_mode()
+            await self.send_text_mode(
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
+            )
+
+    @overload
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
     
-    async def send_tts_mode(self, text: str | None = None) -> NoReturn:
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
         await self._check_response()
 
         if self.reasoning_content:
             await self.send_render(
                 self.reasoning_content,
-                reply = True,
-                continue_handler = True
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
             )
         if self.content:
             await self.send_tts(
                 text or self.content,
-                reply = False,
-                continue_handler = False
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
             )
-        
-        # This line is not necessary
-        self.handler_finished()
 
     @staticmethod
     async def _content_to_text(msg: str, prefix: str = "", suffix: str = "\n\n---\n\n") -> MessageSegment:
@@ -168,13 +223,38 @@ class ChatSendMsg(SendMsg):
             )
         else:
             return MessageSegment.text("")
+
+    @overload
+    async def send_text_mode(
+            self,
+            text: str | None = None,
+            reasoning_content_to_image: bool = True,
+            tool_response_to_image: bool = True,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    async def send_text_mode(
+            self,
+            text: str | None = None,
+            reasoning_content_to_image: bool = True,
+            tool_response_to_image: bool = True,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
     
     async def send_text_mode(
             self,
             text: str | None = None,
             reasoning_content_to_image: bool = True,
-            tool_response_to_image: bool = True
-        ) -> NoReturn:
+            tool_response_to_image: bool = True,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
         await self._check_response()
         
         tasks: list[asyncio.Task[MessageSegment]] = []
@@ -236,15 +316,42 @@ class ChatSendMsg(SendMsg):
         message = Message(results)
 
         message.reduce()
-        await self._send(message)
+        await self._send(
+            message,
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
 
         # This line is not necessary
-        self.handler_finished()
+        self.break_handler()
+
+    @overload
+    async def send_image_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    async def send_image_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
     
     async def send_image_mode(
             self,
-            text: str | None = None
-        ) -> NoReturn:
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
+
         await self._check_response()
         tasks: list[asyncio.Task[MessageSegment]] = []
 
@@ -282,9 +389,16 @@ class ChatSendMsg(SendMsg):
         if tasks:
             results = await asyncio.gather(*tasks)
             message = Message(results)
-            await self._send(message)
+            await self._send(
+                message,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
         else:
-            await self.send_error("Nothing can be sent.")
-        
-        # This line is not necessary
-        self.handler_finished()
+            await self.send_error(
+                "Nothing can be sent.",
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
