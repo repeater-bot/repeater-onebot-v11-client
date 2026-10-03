@@ -7,6 +7,7 @@ class CmdTypes(Enum):
     When an unclassified command appears, expand the enumeration first.
     """
     LISTEN_ALL = "LISTEN_ALL"
+    ALIVED = "ALIVED"
     ECHO = "ECHO"
     CHAT = "CHAT"
     FIM = "FIM"
@@ -39,6 +40,5 @@ class CmdTypes(Enum):
     NAMESPACE = "NAMESPACE"
     STATISTIC = "STATISTIC"
     GAMES = "GAMES"
-    HTTP = "HTTP"
     CLIENT_CONFIG = "CLIENT_CONFIG"
     OTHER = "OTHER"
