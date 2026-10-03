@@ -1368,16 +1368,15 @@ class CommandCaller:
     def _submit_message(
         cls,
         task_ids: set[uuid.UUID],
-        persona_info: PersonaInfo,
-        send_msg: SendMsg,
-        block_propagation: bool = False,
-    ):
+        persona_info: PersonaInfo
+    ) -> list[ListenerPackage]:
+        listeners: list[ListenerPackage] = []
         for listener_id in task_ids:
             listener = cls.message_listener.get(listener_id)
             if listener:
                 listener.set_result(persona_info)
-                if block_propagation and listener.block_propagation:
-                    send_msg.block_propagation()
+                listeners.append(listener)
+        return listeners
     
     @classmethod
     async def report_message(cls, persona_info: PersonaInfo, send_msg: SendMsg, allow_block_propagation: bool = False):
@@ -1389,22 +1388,28 @@ class CommandCaller:
         namespace = persona_info.namespace
         if namespace in cls.message_listener_map:
             async with cls.message_listener_lock:
+                listeners: list[ListenerPackage] = []
                 listener_ids = cls.message_listener_map.pop(namespace)
-                cls._submit_message(
-                    task_ids = listener_ids,
-                    persona_info = persona_info,
-                    send_msg = send_msg,
-                    block_propagation = allow_block_propagation,
+                listeners.extend(
+                    cls._submit_message(
+                        task_ids = listener_ids,
+                        persona_info = persona_info
+                    )
                 )
 
                 if namespace.is_group and namespace.group_id:
                     group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
-                    cls._submit_message(
-                        task_ids = group_listener_ids,
-                        persona_info = persona_info,
-                        send_msg = send_msg,
-                        block_propagation = allow_block_propagation,
+
+                    listeners.extend(
+                        cls._submit_message(
+                            task_ids = group_listener_ids,
+                            persona_info = persona_info
+                        )
                     )
+
+                for listener in listeners:
+                    if allow_block_propagation and listener.block_propagation:
+                        send_msg.block_propagation()
 
             logger.info(
                 "{namespace} Message Wait Finished",
