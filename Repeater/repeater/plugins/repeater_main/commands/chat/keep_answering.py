@@ -40,5 +40,14 @@ class ChatKeepAnswering(BaseChat):
             persona_info,
             response,
             send_msg.matcher,
+
+            reply = send_msg.reply,
+            prefix = send_msg.prefix,
+            suffix = send_msg.suffix,
+            target_group = send_msg.target_group,
+            target_user = send_msg.target_user,
+            send_target = send_msg.sending_target,
+            send_hook = send_msg.send_hook,
+            render_hook = send_msg.render_hook,
         )
         await send_msg.send()
