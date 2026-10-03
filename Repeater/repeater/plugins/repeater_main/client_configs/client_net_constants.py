@@ -52,6 +52,14 @@ TEMPLATE_RENDER = "/template/render"
 # ==== VERSION API ==== #
 VERSION_ROUTE = "/version"
 
+# ==== ALIVED API ==== #
+ALIVED_ROUTE = "/alived"
+ALIVED_TIME = "/alived/time"
+ALIVED_TIME_S = "/alived/time/s"
+ALIVED_TIME_MS = "/alived/time/ms"
+ALIVED_TIME_US = "/alived/time/us"
+ALIVED_TIME_NS = "/alived/time/ns"
+
 # ==== CONFIG ==== #
 REPEATER_DEBUG_MODE: bool = net_config.repeater_debug_mode # 是否开启调试模式，调试模式下，将直接返回消息内容，而不进行后端访问操作
 
