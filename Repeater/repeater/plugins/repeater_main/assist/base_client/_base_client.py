@@ -1,5 +1,3 @@
-import json
-import httpx
 from typing import (
     ClassVar,
     Iterable
@@ -8,12 +6,10 @@ from typing import (
 from .client_pool import (
     ClientPool,
     ClientInfo,
-    ClientTimeout,
-    ClientLimits
+    ClientTimeout
 )
 from ...client_configs import (
-    storage_configs,
-    ClientLimits as StorageClientLimits
+    storage_configs
 )
 from urllib.parse import urljoin, quote
 from ..namespace import Namespace
@@ -27,7 +23,12 @@ class BaseClient:
     timeout: ClassVar[int | float | ClientTimeout | None] = 5
     encoding: ClassVar[str] = "utf-8"
 
-    def __init__(self, persona_info: PersonaInfo, user_configs: UserConfigs, namespace: str | Namespace | None = None):
+    def __init__(
+            self,
+            persona_info: PersonaInfo,
+            user_configs: UserConfigs,
+            namespace: str | Namespace | None = None
+        ):
         self._persona_info = persona_info
         self.user_configs = user_configs
         self._namespace = namespace
