@@ -21,8 +21,8 @@ class FrameworkMessageListener(CommandPackage):
         return True
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        asyncio.create_task(
-            coro = CommandCaller.report_message(
-                persona_info = persona_info
-            )
+        await CommandCaller.report_message(
+            persona_info = persona_info,
+            send_msg = send_msg,
+            block_propagation = True
         )
