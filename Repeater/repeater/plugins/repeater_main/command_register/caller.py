@@ -469,7 +469,8 @@ class CommandCaller:
         :return: The `Future` object.
         """
         source: uuid.UUID | None = cls._task_id.get()
-        if source is None:
+        identity: CommandPackage[Any] | None = cls._identity.get()
+        if source is None or identity is None:
             raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
         listener_id = uuid.uuid4()
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
@@ -485,7 +486,9 @@ class CommandCaller:
 
         async with cls.message_listener_lock:
             logger.info(
-                "Create Wait {namespace} Message Task: {future}",
+                "{handler}({task_id}) Create Wait {namespace} Message Task: {future}",
+                handler = identity.component,
+                task_id = source,
                 namespace = namespace.namespace_str,
                 future = repr(future),
             )
@@ -810,6 +813,14 @@ class CommandCaller:
             childs.add(task_id)
 
             cls.reverse_call_index[task_id] = now_task_id
+
+        logger.info(
+            "Horizontal Enter {handler}({task_id}) -> {sub_handler}({sub_task_id})",
+            handler = identity.component,
+            task_id = now_task_id,
+            sub_handler = package.component,
+            sub_task_id = task_id
+        )
         
         try:
             return await cls.run_handle(
