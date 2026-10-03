@@ -228,6 +228,18 @@ class CommandCaller:
             time = (end_time - start_time) / 1e6
         )
 
+    @classmethod
+    async def get_task_id(cls) -> uuid.UUID:
+        """
+        Get task id.
+
+        :return: task id
+        """
+        task_id = cls._task_id.get()
+        if task_id is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+        return task_id
+
     @staticmethod
     def cmd_prefixs() -> set[str]:
         """
