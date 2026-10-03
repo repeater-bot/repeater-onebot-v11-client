@@ -1,3 +1,4 @@
+from .alived import *
 from .chat_client import *
 from .data_manager import *
 from .image_client import *
