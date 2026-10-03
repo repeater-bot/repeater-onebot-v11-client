@@ -446,14 +446,15 @@ class CommandCaller:
                 namespace = namespace.namespace_str,
                 future = repr(future),
             )
-            cls.message_listener[listener_id] = listen_package
+            
             if listen_group:
                 if namespace.is_group and namespace.group_id is not None:
                     cls.group_message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
                 else:
-                    raise ValueError("listen_group must be True when namespace is group")
+                    raise ValueError("listen_group requires a group namespace")
             else:
                 cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
+            cls.message_listener[listener_id] = listen_package
 
         return listen_package
 
