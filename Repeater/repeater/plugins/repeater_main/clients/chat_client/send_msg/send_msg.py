@@ -8,6 +8,9 @@ from ....assist import (
     PersonaInfo,
     Response,
     SendMsg,
+    SendingTarget,
+    SEND_HOOK,
+    RENDER_HOOK,
     ChatTTSAPI,
     ErrorResponse,
     text_content_cutter,
@@ -29,11 +32,29 @@ class ChatSendMsg(SendMsg):
             reasoning_content_handler: Callable[[str], str] = lambda t: t,
             content_handler: Callable[[str], str] = lambda t: t,
             strip: bool = True,
+
+            reply: MessageSegment | None = None,
+            prefix: Message | None = None,
+            suffix: Message | None = None,
+            target_group: str | None = None,
+            target_user: str | None = None,
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
+            render_hook: RENDER_HOOK | None = None,
         ):
         super().__init__(
             component = component,
             persona_info = persona_info,
             matcher = matcher,
+
+            reply = reply,
+            prefix = prefix,
+            suffix = suffix,
+            target_group = target_group,
+            target_user = target_user,
+            send_target = send_target,
+            send_hook = send_hook,
+            render_hook = render_hook,
         )
         self._response: Response[ChatResponse] = response
         self._chat_tts_api = ChatTTSAPI()

@@ -222,7 +222,7 @@ class SendMsg:
         ):
         self._component: str = component
         self._persona_info: PersonaInfo = persona_info
-        self._reply: MessageSegment = reply or self._persona_info.reply
+        self._reply: MessageSegment | None = reply
         self._prefix: Message = prefix or Message()
         self._suffix: Message = suffix or Message()
         self._chat_tts_api = ChatTTSAPI()
@@ -442,6 +442,55 @@ class SendMsg:
             case SendingTarget.MATCHER:
                 if self._matcher is None:
                     raise ValueError("Matcher can't be a target, because it's not given.")
+
+    @property
+    def reply(self) -> MessageSegment | None:
+        """
+        当前消息的回复内容
+        """
+        return self._reply
+
+    @property
+    def prefix(self) -> Message:
+        """
+        当前消息的回复前缀
+        """
+        return self._prefix.copy()
+
+    @property
+    def suffix(self) -> Message:
+        """
+        当前消息的回复后缀
+        """
+        return self._suffix.copy()
+
+    @property
+    def target_group(self) -> str | None:
+        """
+        当前消息的目标群号
+        """
+        return self._target_group
+
+    @property
+    def target_user(self) -> str | None:
+        """
+        当前消息的目标用户号
+        """
+        return self._target_user
+
+    @property
+    def send_hook(self) -> SEND_HOOK | None:
+        """
+        当前的发送钩子
+        """
+        return self._send_hook
+
+    @property
+    def render_hook(self) -> RENDER_HOOK | None:
+        """
+        当前的渲染钩子
+        """
+        return self._render_hook
     
     @property
     def buffer(self) -> asyncio.Queue[SendingBufferUnit]:
@@ -2226,8 +2275,9 @@ class SendMsg:
         """
         send_msg = self._prefix + message + self._suffix
 
-        if self._persona_info.enter_type != EnterType.External and reply:
-            send_msg = self._reply + send_msg
+        if reply:
+            if self._reply is not None:
+                send_msg = self._reply + send_msg
 
         if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
             hook_result = await self._send_hook(
