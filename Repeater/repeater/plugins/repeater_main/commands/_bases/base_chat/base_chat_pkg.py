@@ -1,5 +1,4 @@
-from typing import NoReturn, ClassVar
-from itertools import chain
+from typing import NoReturn, ClassVar, Literal, overload
 
 from ....logger import logger
 from ....clients import ChatClient, ChatSendMsg, ChatResponse
@@ -254,6 +253,34 @@ class BaseChat(CommandPackage):
             extra_template_fields = send_messages.extra
         )
         return response
+
+    @overload
+    async def send_chat_send_msg(
+            self,
+            chat_send_msg: ChatSendMsg,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    async def send_chat_send_msg(
+            self,
+            chat_send_msg: ChatSendMsg,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
     
-    async def send_chat_send_msg(self, chat_send_msg: ChatSendMsg) -> NoReturn:
-        await chat_send_msg.send()
+    async def send_chat_send_msg(
+            self,
+            chat_send_msg: ChatSendMsg,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
+        await chat_send_msg.send(
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
