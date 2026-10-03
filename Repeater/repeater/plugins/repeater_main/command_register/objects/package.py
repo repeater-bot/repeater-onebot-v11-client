@@ -230,7 +230,8 @@ class CommandPackage(ABC, Generic[T]):
         send_msg = SendMsg(
             component = self.component,
             persona_info = persona_info,
-            matcher = matcher
+            matcher = matcher,
+            reply = persona_info.reply
         )
         return persona_info, send_msg
 
@@ -255,7 +256,8 @@ class CommandPackage(ABC, Generic[T]):
         send_msg = SendMsg(
             component = self.component,
             persona_info = persona_info,
-            matcher = matcher
+            matcher = matcher,
+            reply = persona_info.reply
         )
         return persona_info, send_msg
 
@@ -294,12 +296,13 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: SendMsg object
         :return: PersonaInfo object, SendMsg object
         """
+        persona_info_copy = PersonaInfo.from_horizontal(persona_info, task_id = task_id)
         if send_msg is None:
             send_msg = SendMsg(
                 component = self.component,
-                persona_info = persona_info,
+                persona_info = persona_info_copy,
+                reply = persona_info_copy.reply
             )
-        persona_info_copy = PersonaInfo.from_horizontal(persona_info, task_id = task_id)
         return persona_info_copy, send_msg
 
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
