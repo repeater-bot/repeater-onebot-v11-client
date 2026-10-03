@@ -24,5 +24,5 @@ class FrameworkMessageListener(CommandPackage):
         await CommandCaller.report_message(
             persona_info = persona_info,
             send_msg = send_msg,
-            block_propagation = True
+            allow_block_propagation = True
         )

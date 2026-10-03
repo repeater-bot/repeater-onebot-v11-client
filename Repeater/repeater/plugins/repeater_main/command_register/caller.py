@@ -63,6 +63,7 @@ class CommandCaller:
 
     message_listener: dict[uuid.UUID, ListenerPackage] = {}
     message_listener_map: dict[Namespace, set[uuid.UUID]] = {}
+    group_message_listener_map: dict[str, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
 
     et_server_task: asyncio.Task | None = None
@@ -387,23 +388,41 @@ class CommandCaller:
         return message_handler
     
     @classmethod
-    async def wait_message(cls, namespace: Namespace) -> PersonaInfo:
+    async def wait_message(
+        cls,
+        namespace: Namespace,
+        block_propagation: bool = False,
+        listen_group: bool = False
+    ) -> PersonaInfo:
         """
         Wait for the message.
 
         :param namespace: The target of listening.
+        :param block_propagation: Prevents messages from being passed backward to other handlers.
+        :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
         """
-        future = await cls.message_future(namespace)
+        future = await cls.message_future(
+            namespace = namespace,
+            block_propagation = block_propagation,
+            listen_group = listen_group
+        )
         result = await future
         return result
     
     @classmethod
-    async def message_future(cls, namespace: Namespace) -> ListenerPackage:
+    async def message_future(
+        cls,
+        namespace: Namespace,
+        block_propagation: bool = False,
+        listen_group: bool = False
+    ) -> ListenerPackage:
         """
         Create a Future to wait for the message.
 
         :param namespace: The target of listening.
+        :param block_propagation: Prevents messages from being passed backward to other handlers.
+        :param listen_group: Whether to listen to group messages.
         :return: The `Future` object.
         """
         source: uuid.UUID | None = cls._task_id.get()
@@ -417,7 +436,8 @@ class CommandCaller:
             future = future,
             target = namespace,
             id = listener_id,
-            sponsor = source
+            sponsor = source,
+            block_propagation = block_propagation
         )
 
         async with cls.message_listener_lock:
@@ -427,7 +447,13 @@ class CommandCaller:
                 future = repr(future),
             )
             cls.message_listener[listener_id] = listen_package
-            cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
+            if listen_group:
+                if namespace.is_group and namespace.group_id is not None:
+                    cls.group_message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
+                else:
+                    raise ValueError("listen_group must be True when namespace is group")
+            else:
+                cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
 
         return listen_package
 
@@ -1337,9 +1363,24 @@ class CommandCaller:
             return matcher
         else:
             raise ValueError(f"Unknown listen type: {package.listen_type}")
+
+    @classmethod
+    def _submit_message(
+        cls,
+        task_ids: set[uuid.UUID],
+        persona_info: PersonaInfo,
+        send_msg: SendMsg,
+        block_propagation: bool = False,
+    ):
+        for listener_id in task_ids:
+            listener = cls.message_listener.get(listener_id)
+            if listener:
+                listener.set_result(persona_info)
+                if block_propagation and listener.block_propagation:
+                    send_msg.block_propagation()
     
     @classmethod
-    async def report_message(cls, persona_info: PersonaInfo):
+    async def report_message(cls, persona_info: PersonaInfo, send_msg: SendMsg, allow_block_propagation: bool = False):
         """
         Submits a new message to the listening system.
         
@@ -1349,10 +1390,21 @@ class CommandCaller:
         if namespace in cls.message_listener_map:
             async with cls.message_listener_lock:
                 listener_ids = cls.message_listener_map.pop(namespace)
-                for listener_id in listener_ids:
-                    listener = cls.message_listener.get(listener_id)
-                    if listener:
-                        listener.set_result(persona_info)
+                cls._submit_message(
+                    task_ids = listener_ids,
+                    persona_info = persona_info,
+                    send_msg = send_msg,
+                    block_propagation = allow_block_propagation,
+                )
+
+                if namespace.is_group and namespace.group_id:
+                    group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
+                    cls._submit_message(
+                        task_ids = group_listener_ids,
+                        persona_info = persona_info,
+                        send_msg = send_msg,
+                        block_propagation = allow_block_propagation,
+                    )
 
             logger.info(
                 "{namespace} Message Wait Finished",
