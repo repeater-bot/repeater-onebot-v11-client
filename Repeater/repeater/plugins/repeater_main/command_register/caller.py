@@ -92,6 +92,7 @@ class CommandCaller:
             "startup..."
         )
 
+        start_time = time.perf_counter_ns()
         if storage_configs.external_trigger_server.enabled:
             cls.et_server_task = asyncio.create_task(
                 cls.run_et_server()
@@ -109,6 +110,12 @@ class CommandCaller:
                 )
             )
         await asyncio.gather(*tasks)
+        end_time = time.perf_counter_ns()
+
+        logger.info(
+            "Broadcast Startup Event Complete, {time:.2f}ms.",
+            time = (end_time - start_time) / 1e6
+        )
 
     @classmethod
     async def on_shutdown(cls):
@@ -118,6 +125,8 @@ class CommandCaller:
         logger.info(
             "shutdown..."
         )
+
+        start_time = time.perf_counter_ns()
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
             tasks.append(
@@ -129,6 +138,13 @@ class CommandCaller:
         
         for listening in cls.message_listener.values():
             listening.cancel()
+        
+        end_time = time.perf_counter_ns()
+
+        logger.info(
+            "Broadcast Shutdown Event Complete, {time:.2f}ms.",
+            time = (end_time - start_time) / 1e6
+        )
 
     @classmethod
     async def on_bot_connect(cls, bot: Bot):
@@ -141,6 +157,8 @@ class CommandCaller:
             "bot {bot_id} connect...",
             bot_id = bot.self_id
         )
+
+        start_time = time.perf_counter_ns()
         async def external_trigger_callback(handler: str, event: MessageEvent, args: Message | None):
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
@@ -173,6 +191,12 @@ class CommandCaller:
                 )
             )
         await asyncio.gather(*tasks)
+        end_time = time.perf_counter_ns()
+
+        logger.info(
+            "Broadcast Connect Event Complete, {time:.2f}ms.",
+            time = (end_time - start_time) / 1e6
+        )
 
     @classmethod
     async def on_bot_disconnect(cls, bot: Bot):
@@ -186,6 +210,7 @@ class CommandCaller:
             bot_id = bot.self_id
         )
 
+        start_time = time.perf_counter_ns()
         register_external_trigger.unregister(bot.self_id)
 
         tasks: list[asyncio.Task] = []
@@ -196,6 +221,12 @@ class CommandCaller:
                 )
             )
         await asyncio.gather(*tasks)
+        end_time = time.perf_counter_ns()
+
+        logger.info(
+            "Broadcast Disconnect Event Complete, {time:.2f}ms.",
+            time = (end_time - start_time) / 1e6
+        )
 
     @staticmethod
     def cmd_prefixs() -> set[str]:
