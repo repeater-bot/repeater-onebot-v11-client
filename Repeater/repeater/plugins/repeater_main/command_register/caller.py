@@ -1386,9 +1386,9 @@ class CommandCaller:
         :param persona_info: The `PersonaInfo` object of the message
         """
         namespace = persona_info.namespace
-        if namespace in cls.message_listener_map:
-            async with cls.message_listener_lock:
-                listeners: list[ListenerPackage] = []
+        async with cls.message_listener_lock:
+            listeners: list[ListenerPackage] = []
+            if namespace in cls.message_listener_map:
                 listener_ids = cls.message_listener_map.pop(namespace)
                 listeners.extend(
                     cls._submit_message(
@@ -1397,19 +1397,19 @@ class CommandCaller:
                     )
                 )
 
-                if namespace.is_group and namespace.group_id:
-                    group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
+            if namespace.is_group and namespace.group_id and namespace.group_id in cls.message_listener_map:
+                group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
 
-                    listeners.extend(
-                        cls._submit_message(
-                            task_ids = group_listener_ids,
-                            persona_info = persona_info
-                        )
+                listeners.extend(
+                    cls._submit_message(
+                        task_ids = group_listener_ids,
+                        persona_info = persona_info
                     )
+                )
 
-                for listener in listeners:
-                    if allow_block_propagation and listener.block_propagation:
-                        send_msg.block_propagation()
+            for listener in listeners:
+                if allow_block_propagation and listener.block_propagation:
+                    send_msg.block_propagation()
 
             logger.info(
                 "{namespace} Message Wait Finished",
