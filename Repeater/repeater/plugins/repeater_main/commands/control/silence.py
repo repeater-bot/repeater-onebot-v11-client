@@ -1,11 +1,10 @@
-import re
-
 from ...assist import PersonaInfo, SendMsg, SendingTarget
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
     CommandPackage
 )
+from ._peel_command import peel_command
 
 @CommandCaller.register
 class Silence(CommandPackage):
@@ -26,20 +25,10 @@ class Silence(CommandPackage):
         ```
     """
 
-    pattern = re.compile(r"^(?P<command>[/\w\.]+)\s*(?P<args>.*)$", re.IGNORECASE | re.DOTALL | re.UNICODE)
-
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        msg = str(persona_info.message)
-        
-        matched = self.pattern.match(msg)
-        if matched:
-            command = matched.group("command")
-            args_prefix = matched.group("args")
-
-            assert isinstance(command, str), "command must be str"
-            assert isinstance(args_prefix, str), "args_prefix must be str"
-
-            args = persona_info.make_message(args_prefix)
+        peeled = peel_command(persona_info.message)
+        if peeled is not None:
+            command, args = peeled
 
             try:
                 package = CommandCaller.match_trigger_or_component(command)

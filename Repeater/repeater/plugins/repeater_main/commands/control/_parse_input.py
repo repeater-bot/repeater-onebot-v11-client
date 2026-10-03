@@ -3,7 +3,7 @@ from ...command_register import CommandPackage, CommandCaller
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from typing import Type, Any
 
-from ._split_by_indent import _strip_leading_text
+from ._split_by_indent import strip_leading_text
 
 def parse_input(message: list[list[Message]]) -> list[tuple[type[CommandPackage[Any]], Message]]:
     command_call: list[tuple[Type[CommandPackage[Any]], Message]] = []
@@ -25,7 +25,7 @@ def parse_input(message: list[list[Message]]) -> list[tuple[type[CommandPackage[
             name = rest_text[:space_index]
             consumed = len(prefix) + space_index + 1
 
-        args = _strip_leading_text(first_message, consumed)
+        args = strip_leading_text(first_message, consumed)
 
         child_segments: list[MessageSegment] = [
             segment for msg in line[1:] for segment in msg

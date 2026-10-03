@@ -1,8 +1,11 @@
 """按缩进切分消息。
 
-对外只暴露 :func:`split_by_indent`：把一条消息切成
+对外暴露 :func:`split_by_indent`：把一条消息切成
 ``[触发行, 该触发行全部直接子行合并成的参数]``，一次只解析一层。
 更深的层级由子块本身作为参数再次进入本函数解析。
+
+:func:`strip_leading_text` 供同目录的解析模块复用：按字符数裁掉行首文本，
+保留消息段结构。
 """
 
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
@@ -80,7 +83,7 @@ def split_by_indent(
             raise IndentError(
                 line_no, "line is indented but no top-level line precedes it"
             )
-        current_children.append(_strip_leading_text(line, indent))
+        current_children.append(strip_leading_text(line, indent))
 
     if current_root is not None:
         results.append(_make_block(current_root, current_children))
@@ -145,7 +148,7 @@ def _measure_indent(line: Message, indent_char: str) -> tuple[int, str | None]:
     return leading, None
 
 
-def _strip_leading_text(message: Message, count: int) -> Message:
+def strip_leading_text(message: Message, count: int) -> Message:
     """裁掉行首 ``count`` 个字符，只作用于文本段。
 
     被整段裁完的文本段会被丢弃，非文本段原样保留，因此段结构不会丢失。
