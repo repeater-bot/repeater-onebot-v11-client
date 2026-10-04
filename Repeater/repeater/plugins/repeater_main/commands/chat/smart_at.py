@@ -49,18 +49,3 @@ class SmartAT(BaseChat):
         if persona_info.source == MessageSource.GROUP:
             await send_msg.send_hello()
         send_msg.break_handler()
-
-    async def send_chat_send_msg(
-        self,
-        chat_send_msg: ChatSendMsg,
-        reply: bool = True,
-        break_code: int = 0,
-        continue_handler: bool = False
-    ):
-        user_configs = await chat_send_msg.persona_info.get_user_configs()
-        if user_configs.smart_at_output:
-            await chat_send_msg.send_text_mode(
-                reply=reply,
-                break_code=break_code,
-                continue_handler=continue_handler
-            )

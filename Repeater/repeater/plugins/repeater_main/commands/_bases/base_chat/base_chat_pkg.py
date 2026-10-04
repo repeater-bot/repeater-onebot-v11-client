@@ -2,7 +2,7 @@ from typing import NoReturn, ClassVar, Literal, overload
 
 from ....logger import logger
 from ....clients import ChatClient, ChatSendMsg, ChatResponse
-from ....assist import PersonaInfo, FileInfo, SendMsg, Response, Downloader
+from ....assist import PersonaInfo, FileInfo, SendMsg, Response, Downloader, ChatOutputMode
 from ....cmd_info import CmdTypes
 from ....client_configs import storage_configs
 from ....command_register import CommandPackage
@@ -280,16 +280,33 @@ class BaseChat(CommandPackage):
             break_code: int = 0,
             continue_handler: Literal[True] = True
         ) -> None: ...
-    
+
     async def send_chat_send_msg(
-            self,
-            chat_send_msg: ChatSendMsg,
-            reply: bool = True,
-            break_code: int = 0,
-            continue_handler: bool = False
-        ) -> None:
-        await chat_send_msg.send(
-            reply = reply,
-            break_code = break_code,
-            continue_handler = continue_handler
-        )
+        self,
+        chat_send_msg: ChatSendMsg,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False
+    ):
+        user_configs = await chat_send_msg.persona_info.get_user_configs()
+        match user_configs.chat_output:
+            case ChatOutputMode.AUTO:
+                await chat_send_msg.send(
+                    reply=reply,
+                    break_code=break_code,
+                    continue_handler=continue_handler
+                )
+            case ChatOutputMode.TEXT:
+                await chat_send_msg.send_text_mode(
+                    reply=reply,
+                    break_code=break_code,
+                    continue_handler=continue_handler
+                )
+            case ChatOutputMode.IMAGE:
+                await chat_send_msg.send_image_mode(
+                    reply=reply,
+                    break_code=break_code,
+                    continue_handler=continue_handler
+                )
+            case ChatOutputMode.NULL:
+                pass
