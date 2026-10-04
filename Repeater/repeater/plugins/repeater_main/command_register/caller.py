@@ -1435,10 +1435,14 @@ class CommandCaller:
     ) -> list[ListenerPackage]:
         listeners: list[ListenerPackage] = []
         for listener_id in task_ids:
-            listener = cls.message_listener.get(listener_id)
+            listener = cls.message_listener.pop(listener_id)
             if listener:
                 listener.set_result(persona_info)
                 listeners.append(listener)
+                logger.info(
+                    "{namespace} Message Wait Finished",
+                    namespace = persona_info.namespace_str,
+                )
         return listeners
     
     @classmethod
@@ -1473,9 +1477,3 @@ class CommandCaller:
             for listener in listeners:
                 if allow_block_propagation and listener.block_propagation:
                     send_msg.block_propagation()
-
-            logger.info(
-                "{namespace} Message Wait Finished",
-                namespace = namespace.namespace_str,
-            )
-                
