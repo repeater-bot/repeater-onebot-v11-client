@@ -320,6 +320,18 @@
         "cache_timeout": 60
     },
 
+    // Chat 类型命令的输出控制
+    // 可选值：
+    // image: 以 Markdown 形式输出该片段内容
+    // text: 以纯文本形式输出该片段内容
+    // auto: 自动选择
+    // null: 不输出该片段内容
+    "chat_output": {
+        "reasoning_content": "image",
+        "tool_content": "image",
+        "content": "auto",
+    },
+
     // 生成图片所参考的文件的解析类型
     // 支持 url / path / base64
     // 具体请参考你的 OneBot 实现选择的方式
