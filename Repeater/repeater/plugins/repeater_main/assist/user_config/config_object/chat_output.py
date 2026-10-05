@@ -1,7 +1,7 @@
-from enum import StrEnum
+from pydantic import BaseModel
+from ....client_configs import ChatOutputMode
 
-class ChatOutputMode(StrEnum):
-    AUTO = "auto"
-    IMAGE = "image"
-    TEXT = "text"
-    NULL = "null"
+class ChatOutput(BaseModel):
+    reasoning_content: ChatOutputMode | None = None
+    tool_content: ChatOutputMode | None = None
+    content: ChatOutputMode | None = None

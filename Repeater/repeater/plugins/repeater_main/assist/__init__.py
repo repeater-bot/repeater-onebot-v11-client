@@ -68,7 +68,7 @@ from .network import (
 from .user_config import (
     UserConfigs,
     UserConfigLoader,
-    ChatOutputMode
+    ChatOutput
 )
 from .base_client import (
     BaseClient,
@@ -157,7 +157,7 @@ __all__ = [
 
     "UserConfigs",
     "UserConfigLoader",
-    "ChatOutputMode",
+    "ChatOutput",
 
     "BaseClient",
     "ClientPool",
