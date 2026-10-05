@@ -1,6 +1,7 @@
 from .._bases import BaseChat
 from ...clients import ChatSendMsg
 from ...command_register import CommandCaller
+from ...client_configs import ChatOutputMode
 
 @CommandCaller.register
 class RenderChat(BaseChat):
@@ -30,7 +31,10 @@ class RenderChat(BaseChat):
         break_code: int = 0,
         continue_handler: bool = False
     ):
-        await chat_send_msg.send_image_mode(
+        await chat_send_msg.send(
+            output_reasoning_content_mode = ChatOutputMode.IMAGE,
+            output_tool_call_mode = ChatOutputMode.IMAGE,
+            output_content_mode = ChatOutputMode.IMAGE,
             reply=reply,
             break_code=break_code,
             continue_handler=continue_handler

@@ -1,5 +1,4 @@
 from ...assist import PersonaInfo, SendMsg, MessageSource
-from ...clients import ChatSendMsg
 from ...command_register import CommandCaller, ListenType
 from .._bases import BaseChat, SendMessage
 from ...client_configs import storage_configs

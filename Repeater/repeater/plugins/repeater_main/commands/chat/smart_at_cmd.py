@@ -1,4 +1,4 @@
-from ...assist import PersonaInfo, SendMsg, MessageSource
+from ...assist import PersonaInfo, SendMsg
 from ...command_register import CommandCaller, ListenType
 from .._bases import BaseChat
 from .smart_at import SmartAT

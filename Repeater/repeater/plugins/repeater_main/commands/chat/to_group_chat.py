@@ -1,6 +1,6 @@
 import re
 from .._bases import BaseChat
-from ...assist import PersonaInfo, Namespace, MessageSource
+from ...assist import PersonaInfo
 from ...clients import ChatClient
 from ...command_register import CommandCaller
 
