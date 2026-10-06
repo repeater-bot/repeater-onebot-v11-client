@@ -2273,35 +2273,36 @@ class SendMsg:
         :param reply: 是否携带引用
         :param continue_handler: 是否继续运行当前处理流程
         """
-        send_msg = self._prefix + message + self._suffix
+        if message:
+            send_msg = self._prefix + message + self._suffix
 
-        if reply:
-            if self._reply is not None:
-                send_msg = self._reply + send_msg
+            if reply:
+                if self._reply is not None:
+                    send_msg = self._reply + send_msg
 
-        if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
-            hook_result = await self._send_hook(
-                target = self._sending_target,
-                message = send_msg,
-            )
-            if hook_result is False:
-                if not continue_handler:
-                    self.break_handler(break_code)
-                return
-        
-        try:
-            await self._send_to_target(
-                message = send_msg,
-                reply = reply,
-                break_code = break_code,
-                continue_handler = continue_handler
-            )
-        except Exception as error:
-            logger.error(
-                "Message Send Failed: \n{error}",
-                error = error
-            )
-            raise
+            if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
+                hook_result = await self._send_hook(
+                    target = self._sending_target,
+                    message = send_msg,
+                )
+                if hook_result is False:
+                    if not continue_handler:
+                        self.break_handler(break_code)
+                    return
+            
+            try:
+                await self._send_to_target(
+                    message = send_msg,
+                    reply = reply,
+                    break_code = break_code,
+                    continue_handler = continue_handler
+                )
+            except Exception as error:
+                logger.error(
+                    "Message Send Failed: \n{error}",
+                    error = error
+                )
+                raise
 
         if not continue_handler:
             self.break_handler(break_code)
