@@ -1,3 +1,3 @@
-from .similarity_api import SimilarityClient
+from .embedings_api import EmbedingsClient
 from .request import SimilarityRequest
 from .response import SimilarityResponse
