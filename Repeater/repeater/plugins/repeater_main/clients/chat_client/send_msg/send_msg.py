@@ -150,9 +150,9 @@ class ChatSendMsg(SendMsg):
     async def send(
             self,
             text: str | None = None,
-            output_reasoning_content_mode: ChatOutputMode = ChatOutputMode.IMAGE,
-            output_tool_call_mode: ChatOutputMode = ChatOutputMode.IMAGE,
-            output_content_mode: ChatOutputMode = ChatOutputMode.AUTO,
+            output_reasoning_content_mode: ChatOutputMode | None = None,
+            output_tool_call_mode: ChatOutputMode | None = None,
+            output_content_mode: ChatOutputMode | None = None,
         
             title: str | None = None,
             document_bottom_comment: str | None = None,
@@ -168,9 +168,9 @@ class ChatSendMsg(SendMsg):
     async def send(
             self,
             text: str | None = None,
-            output_reasoning_content_mode: ChatOutputMode = ChatOutputMode.IMAGE,
-            output_tool_call_mode: ChatOutputMode = ChatOutputMode.IMAGE,
-            output_content_mode: ChatOutputMode = ChatOutputMode.AUTO,
+            output_reasoning_content_mode: ChatOutputMode | None = None,
+            output_tool_call_mode: ChatOutputMode | None = None,
+            output_content_mode: ChatOutputMode | None = None,
         
             title: str | None = None,
             document_bottom_comment: str | None = None,
@@ -225,19 +225,19 @@ class ChatSendMsg(SendMsg):
             else:
                 self.break_handler()
             
-        output_reasoning_content_mode = (
+        output_reasoning_content_final_mode = (
             output_reasoning_content_mode or
             chat_output.reasoning_content or
             storage_configs.chat_output.reasoning_content
         )
         
-        output_tool_call_mode = (
+        output_tool_call_final_mode = (
             output_tool_call_mode or
             chat_output.tool_content or
             storage_configs.chat_output.tool_content
         )
 
-        output_content_mode = (
+        output_content_final_mode = (
             output_content_mode or
             chat_output.content or
             storage_configs.chat_output.content
@@ -253,9 +253,9 @@ class ChatSendMsg(SendMsg):
         message = await self.parse_response(
             text = text or content,
 
-            output_reasoning_content_mode = output_reasoning_content_mode,
-            output_tool_call_mode = output_tool_call_mode,
-            output_content_mode = output_content_mode,
+            output_reasoning_content_mode = output_reasoning_content_final_mode,
+            output_tool_call_mode = output_tool_call_final_mode,
+            output_content_mode = output_content_final_mode,
 
             title = title,
             document_bottom_comment = document_bottom_comment,
@@ -318,22 +318,27 @@ class ChatSendMsg(SendMsg):
     @staticmethod
     async def _content_to_text(
         msg: str,
-        prefix: str = "",
-        suffix: str = "\n\n---\n\n"
     ) -> MessageSegment:
-        if msg:
-            return MessageSegment.text(
-                f"{prefix}{msg}{suffix}"
-            )
+        return MessageSegment.text(text=msg)
+
+    async def _spread_out_mode(
+        self,
+        output_mode: ChatOutputMode,
+        content: str
+    ) -> ChatOutputMode:
+        if output_mode == ChatOutputMode.AUTO:
+            tls = self.text_length_score(content)
+            if tls > self.text_length_score_threshold:
+                return ChatOutputMode.IMAGE
+            else:
+                return ChatOutputMode.TEXT
         else:
-            return MessageSegment.text("")
+            return output_mode
 
     async def _parse_msg(
         self,
         output_mode: ChatOutputMode,
         content: str,
-        prefix: str = "",
-        suffix: str = "\n\n---\n\n",
         
         title: str | None = None,
         document_bottom_comment: str | None = None,
@@ -356,9 +361,7 @@ class ChatSendMsg(SendMsg):
             case ChatOutputMode.TEXT:
                 reasoning_text_task = asyncio.create_task(
                     coro = self._content_to_text(
-                        msg = content,
-                        prefix = prefix,
-                        suffix = suffix
+                        msg = content
                     )
                 )
                 tasks.append(reasoning_text_task)
@@ -377,9 +380,7 @@ class ChatSendMsg(SendMsg):
                 else:
                     reasoning_text_task = asyncio.create_task(
                         coro = self._content_to_text(
-                            msg = content,
-                            prefix = prefix,
-                            suffix = suffix
+                            msg = content
                         )
                     )
                     tasks.append(reasoning_text_task)
@@ -444,7 +445,6 @@ class ChatSendMsg(SendMsg):
                 await self._parse_msg(
                     output_mode = output_content_mode,
                     content = "[No Content]",
-                    suffix = "",
                     title = title,
                     document_bottom_comment = document_bottom_comment,
                     style = style,
@@ -453,7 +453,11 @@ class ChatSendMsg(SendMsg):
             )
 
         results = await asyncio.gather(*tasks)
-        message = Message(results)
+        message = Message()
+        for index, message_segment in enumerate(results):
+            message.append(message_segment)
+            if message_segment.type == "text" and index < len(results) - 1 and results[index + 1].type == "text":
+                message.append(MessageSegment.text("\n\n---\n\n"))
 
         message.reduce()
         return message
