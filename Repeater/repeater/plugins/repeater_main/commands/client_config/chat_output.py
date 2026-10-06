@@ -81,6 +81,7 @@ class ChatOutput(CommandPackage):
             user_configs.chat_output.reasoning_content = reasoning_content_mode
             user_configs.chat_output.tool_content = tool_content_mode
             user_configs.chat_output.content = content_mode
+            await persona_info.set_user_configs(user_configs)
             await send_msg.send_prompt(
                 prompt = "\n".join([
                     "Set chat output to:",
