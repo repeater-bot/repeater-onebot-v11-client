@@ -4,7 +4,7 @@ from ...command_register import(
     CommandCaller,
     CommandPackage
 )
-from ...clients import SimilarityClient
+from ...clients import EmbedingsClient
 from ..._adaptation_info import __adaptation__
 
 
@@ -57,7 +57,7 @@ class Similarity(CommandPackage):
                         )
         
         configs = await persona_info.get_user_configs()
-        client = SimilarityClient(persona_info, configs)
+        client = EmbedingsClient(persona_info, configs)
         response = await client.similarity(
             first_text = "\n".join(first_text),
             second_text = "\n".join(second_text),
