@@ -99,9 +99,13 @@
     "server_api_timeout": {
 
         // 聊天 API 超时
-        "chat": 600.0,
+        "chat": 4800.0,
 
+        // 图片 API 超时
         "image": 2400.0,
+
+        // 嵌入向量 API 超时
+        "embeding": 600.0,
 
         // 上下文操作 API 超时
         "context": 10.0,
