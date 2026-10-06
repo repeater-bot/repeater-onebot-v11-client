@@ -1,9 +1,9 @@
-from .watermask_api import WatermaskClient
+from .watermask_api import WatermarkClient
 from .request import WatermaskEncodeRequest, WatermaskDecodeRequest
 from .response import WatermaskDecodeResponse
 
 __all__ = [
-    "WatermaskClient",
+    "WatermarkClient",
     "WatermaskEncodeRequest",
     "WatermaskDecodeRequest",
     "WatermaskDecodeResponse",
