@@ -10,5 +10,6 @@ from .user_file_client import *
 from .template_render_client import *
 from .version import *
 from .licenses import *
+from .watermask import *
 from .content_role import ContentRole
 from .content_unit import ContentUnit
