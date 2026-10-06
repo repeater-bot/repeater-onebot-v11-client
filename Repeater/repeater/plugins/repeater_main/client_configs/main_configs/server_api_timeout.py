@@ -15,3 +15,4 @@ class ServerAPITimeout(BaseModel):
     request_log: int | float | None = 1200.0
     variable_expansion: int | float | None = 40.0
     render: int | float | None = 600.0
+    watermask: int | float | None = 600.0
