@@ -9,8 +9,9 @@ GET_CHAT_BUFFER_ROUTE = "/generate/chat/buffer"
 # ==== IMAGE API ==== #
 IMAGE_ROUTE = "/generate/image/generate"
 
-# ==== Similarity API ==== #
+# ==== Embedings API ==== #
 SIMILARITY_ROUTE = "/generate/similarity"
+VECTORS_ROUTE = "/generate/vectors"
 
 # ==== CONTEXT API ==== #
 GET_CONTEXT_ROUTE = "/userdata/context/get"

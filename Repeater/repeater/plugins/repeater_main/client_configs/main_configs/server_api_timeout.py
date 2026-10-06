@@ -3,7 +3,7 @@ from pydantic import BaseModel
 class ServerAPITimeout(BaseModel):
     chat: int | float | None = 4800.0
     image: int | float | None = 2400.0
-    similarity: int | float | None = 600.0
+    embeding: int | float | None = 600.0
     context: int | float | None = 10.0
     prompt: int | float | None = 10.0
     config: int | float | None = 10.0
