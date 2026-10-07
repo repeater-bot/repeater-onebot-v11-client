@@ -32,6 +32,10 @@ from .get_message_history import (
     get_private_message_history,
     get_group_message_history,
 )
+from .is_empty_message import is_empty_message
+from .get_group_member_info import get_group_member_info
+from .get_group_member_list import get_group_member_list
+from .get_stranger_info import get_stranger_info
 
 __all__ = [
     "at_with_name",
@@ -60,4 +64,8 @@ __all__ = [
     "make_message_event",
     "get_group_message_history",
     "get_private_message_history",
+    "is_empty_message",
+    "get_group_member_info",
+    "get_group_member_list",
+    "get_stranger_info",
 ]
