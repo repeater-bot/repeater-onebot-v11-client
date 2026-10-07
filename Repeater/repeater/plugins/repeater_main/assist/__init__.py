@@ -25,6 +25,11 @@ from .assist_func import (
     make_message_event,
     get_private_message_history,
     get_group_message_history,
+    is_empty_message,
+    is_empty_message,
+    get_group_member_info,
+    get_group_member_list,
+    get_stranger_info,
 )
 from .persona_info import (
     EnterType,
@@ -94,6 +99,11 @@ from .special_values import (
     is_no_give,
     is_no_give_type,
 )
+from .models import (
+    GroupMemberInfo,
+    BusinessCard,
+    CustomStatus,
+)
 
 __all__ = [
     "at_with_name",
@@ -122,6 +132,11 @@ __all__ = [
     "make_message_event",
     "get_private_message_history",
     "get_group_message_history",
+    "is_empty_message",
+    "is_empty_message",
+    "get_group_member_info",
+    "get_group_member_list",
+    "get_stranger_info",
 
     "EnterType",
     "PersonaInfo",
@@ -177,4 +192,9 @@ __all__ = [
     "nogive",
     "is_no_give",
     "is_no_give_type",
+
+    
+    "GroupMemberInfo",
+    "BusinessCard",
+    "CustomStatus",
 ]
