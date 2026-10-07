@@ -32,6 +32,14 @@ from ..assist_func import (
     make_empty_message_event,
     get_private_message_history,
     get_group_message_history,
+    is_empty_message,
+    get_group_member_info,
+    get_group_member_list,
+    get_stranger_info,
+)
+from ..models import (
+    GroupMemberInfo,
+    BusinessCard
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -452,13 +460,7 @@ class PersonaInfo:
         """
         判断消息是否为空
         """
-        for message in self.message:
-            if message.type == "text":
-                if message.data["text"]:
-                    return True
-            elif message.type not in ["at", "reply"]:
-                return True
-        return False
+        return not is_empty_message(self.message)
 
     @property
     def task_id(self) -> uuid.UUID:
@@ -487,6 +489,20 @@ class PersonaInfo:
         当前发起请求的用户是否为自身
         """
         return self.user_id == self.self_id
+
+    @property
+    def is_group(self) -> bool:
+        """
+        当前消息是否为群聊消息
+        """
+        return self.source == MessageSource.GROUP
+
+    @property
+    def is_private(self) -> bool:
+        """
+        当前消息是否为私聊消息
+        """
+        return self.source == MessageSource.PRIVATE
     
     @property
     def self_id(self) -> str:
@@ -709,6 +725,36 @@ class PersonaInfo:
         设置用户配置
         """
         await self._user_config_loader.save(configs)
+
+    async def get_group_member_info(self, group_id: str, user_id: str, no_cache: bool = False) -> GroupMemberInfo:
+        """
+        获取群成员信息
+        """
+        return await get_group_member_info(
+            bot = self.cached_api,
+            group_id = int(group_id),
+            user_id = int(user_id),
+            no_cache = no_cache
+        )
+
+    async def get_group_member_list(self, group_id: str) -> list[GroupMemberInfo]:
+        """
+        获取群成员列表
+        """
+        return await get_group_member_list(
+            bot = self.cached_api,
+            group_id = int(group_id)
+        )
+
+    async def get_stranger_info(self, user_id: str, no_cache: bool = False) -> BusinessCard:
+        """
+        获取陌生人信息
+        """
+        return await get_stranger_info(
+            bot = self.cached_api,
+            user_id = int(user_id),
+            no_cache = no_cache
+        )
     
     @property
     def event_message(self) -> Message:
