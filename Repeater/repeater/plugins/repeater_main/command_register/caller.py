@@ -38,7 +38,10 @@ from .objects import (
     RunningPackage,
     SubCmdBreaked,
     SubCmdExit,
-    ListenerPackage
+    ListenerPackage,
+    LettersPackage,
+    PipePackage,
+    StatusPackage,
 )
 from .external_trigger import register_external_trigger, et_server
 from contextvars import ContextVar
@@ -65,6 +68,18 @@ class CommandCaller:
     message_listener_map: dict[Namespace, set[uuid.UUID]] = {}
     group_message_listener_map: dict[str, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
+
+    letters_listener: dict[uuid.UUID, LettersPackage[Any]] = {}
+    letters_listener_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    letters_listener_lock: asyncio.Lock = asyncio.Lock()
+
+    pipes: dict[uuid.UUID, PipePackage[Any, Any]] = {}
+    pipe_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    pipe_lock: asyncio.Lock = asyncio.Lock()
+
+    statuses: dict[uuid.UUID, StatusPackage] = {}
+    statuses_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    status_lock: asyncio.Lock = asyncio.Lock()
 
     et_server_task: asyncio.Task | None = None
 
@@ -503,6 +518,178 @@ class CommandCaller:
             cls.message_listener[listener_id] = listen_package
 
         return listen_package
+
+    @classmethod
+    async def create_letters(cls, name: str, namespace: Namespace) -> LettersPackage:
+        """
+        Create a letters package.
+
+        :param name: The name of the letters package.
+        :return: The letters package.
+        """
+        loop = asyncio.get_event_loop()
+        future = loop.create_future()
+        sponsor = cls._task_id.get()
+        if sponsor is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+
+        letters_id = uuid.uuid4()
+        letters_package = LettersPackage(
+            future = future,
+            name = name,
+            id = letters_id,
+            sponsor = sponsor,
+        )
+
+        async with cls.letters_listener_lock:
+            user_letters = cls.letters_listener_map.setdefault(namespace, {})
+            user_letters[name] = letters_id
+            cls.letters_listener[letters_id] = letters_package
+
+        return letters_package
+
+    @classmethod
+    async def submit_letters(cls, name: str, value: Any, namespace: Namespace) -> bool:
+        """
+        Submit a letters.
+
+        :param letters_package: The letters package.
+        :param namespace: The target of listening.
+        :return: Whether the submit is successful.
+        """
+        async with cls.letters_listener_lock:
+            user_letters = cls.letters_listener_map.get(namespace)
+            if user_letters is None:
+                return False
+
+            letters_ids = user_letters.pop(name, None)
+            if letters_ids is None:
+                return False
+
+            if not user_letters:
+                cls.letters_listener_map.pop(namespace)
+
+            letters_packages = cls.letters_listener.pop(letters_ids)
+            letters_packages.set_result(value)
+            return True
+
+    @classmethod
+    async def open_pipe(cls, name: str, namespace: Namespace) -> PipePackage[Any, Any]:
+        """
+        Open a pipe package.
+
+        :param name: The name of the pipe package.
+        :return: The pipe package.
+        """
+        loop = asyncio.get_event_loop()
+        future = loop.create_future()
+        sponsor = cls._task_id.get()
+        if sponsor is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+
+        pipe_id = uuid.uuid4()
+        pipe_package = PipePackage(
+            upstream = asyncio.Queue(),
+            downstream = future,
+            name = name,
+            sponsor = sponsor,
+            id = pipe_id,
+        )
+
+        async with cls.pipe_lock:
+            user_pipes = cls.pipe_map.setdefault(namespace, {})
+            if name in user_pipes:
+                other_pipe_id = user_pipes[name]
+                other_pipe = cls.pipes[other_pipe_id]
+                if other_pipe.opened:
+                    raise RuntimeError("The pipe is already opened.")
+                other_pipe.downstream.set_result(pipe_package.upstream)
+                pipe_package.downstream.set_result(other_pipe.upstream)
+                other_pipe.other_id = pipe_id
+                pipe_package.other_id = other_pipe_id
+            else:
+                user_pipes[name] = pipe_id
+            cls.pipes[pipe_id] = pipe_package
+
+        return pipe_package
+
+    @classmethod
+    async def close_pipe(cls, name: str, namespace: Namespace) -> bool:
+        """
+        Close a pipe package.
+
+        :param name: The name of the pipe package.
+        :return: Whether the close is successful.
+        """
+        async with cls.pipe_lock:
+            user_pipes = cls.pipe_map.get(namespace)
+            if user_pipes is None:
+                return False
+            
+            pipe_id = user_pipes.pop(name, None)
+            if pipe_id is None:
+                return False
+            if not user_pipes:
+                cls.pipe_map.pop(namespace)
+            
+            pipe_package = cls.pipes.pop(pipe_id)
+            await pipe_package.close()
+
+            other_pipe_id = pipe_package.other_id
+            if other_pipe_id is None:
+                return True
+            
+            other_pipe = cls.pipes.pop(other_pipe_id)
+            await other_pipe.close()
+            return True
+
+    @classmethod
+    async def create_status(cls, name: str, namespace: Namespace) -> StatusPackage:
+        """
+        Create a status package.
+
+        :param name: The name of the status package.
+        :return: The status package.
+        """
+        event = asyncio.Event()
+        sponsor = cls._task_id.get()
+        if sponsor is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+
+        status_id = uuid.uuid4()
+        status_package = StatusPackage(
+            event = event,
+            status_id = status_id,
+            sponsor = sponsor
+        )
+
+        async with cls.status_lock:
+            user_statuses = cls.statuses_map.setdefault(namespace, {})
+            user_statuses[name] = status_id
+            cls.statuses[status_id] = status_package
+
+        return status_package
+    
+    @classmethod
+    async def finish_status(cls, name: str, namespace: Namespace) -> bool:
+        """
+        Finish a status.
+
+        :param name: The name of the status.
+        :return: Whether the finish is successful.
+        """
+        async with cls.status_lock:
+            user_statuses = cls.statuses_map.get(namespace)
+            if user_statuses is None:
+                return False
+            status_id = user_statuses.pop(name, None)
+            if status_id is None:
+                return False
+            if not user_statuses:
+                cls.statuses_map.pop(namespace)
+            status_package = cls.statuses.pop(status_id)
+            status_package.finish()
+            return True
 
     @classmethod
     async def cancel_wait_message(cls, namespace: Namespace) -> bool:

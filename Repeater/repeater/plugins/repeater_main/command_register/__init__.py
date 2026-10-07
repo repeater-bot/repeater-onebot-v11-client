@@ -6,7 +6,9 @@ from .objects import (
     SubCmdExit,
     SubCmdBreaked,
     SubCmdCacelled,
-    SubCmdTimeout
+    SubCmdTimeout,
+    LettersPackage,
+    PipePackage
 )
 from .listen_all import FrameworkMessageListener
 from .typings import (
@@ -28,6 +30,8 @@ __all__ = [
     "SubCmdBreaked",
     "SubCmdCacelled",
     "SubCmdTimeout",
+    "LettersPackage",
+    "PipePackage",
     "FrameworkMessageListener",
     "New",
     "on_startup",

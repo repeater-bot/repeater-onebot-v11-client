@@ -1,0 +1,2 @@
+class PipeCloseException(Exception):
+    pass
