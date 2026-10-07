@@ -17,6 +17,7 @@ from ..assist_func import (
     text_length_score,
     send_group_file,
     send_private_file,
+    is_empty_message,
 )
 from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
@@ -2273,7 +2274,7 @@ class SendMsg:
         :param reply: 是否携带引用
         :param continue_handler: 是否继续运行当前处理流程
         """
-        if message:
+        if not is_empty_message(message):
             send_msg = self._prefix + message + self._suffix
 
             if reply:
