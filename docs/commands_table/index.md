@@ -24,6 +24,7 @@
 - [SendMsg](./commands/send_msg.md)
 - [Protocol](./commands/protocol.md)
 - [Games](./commands/games.md)
+- [Watermark](./commands/watermark.md)
 - [Other](./commands/other.md)
 
 PS：`CHAT` 类型命令大部分都做到了支持视觉输入
