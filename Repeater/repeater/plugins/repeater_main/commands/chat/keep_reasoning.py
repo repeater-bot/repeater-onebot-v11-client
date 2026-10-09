@@ -37,19 +37,5 @@ class ChatKeepReasoning(BaseChat):
             thinking=True,
         )
         
-        send_msg = ChatSendMsg(
-            send_msg.component,
-            persona_info,
-            response,
-            send_msg.matcher,
-
-            reply = send_msg.reply,
-            prefix = send_msg.prefix,
-            suffix = send_msg.suffix,
-            target_group = send_msg.target_group,
-            target_user = send_msg.target_user,
-            send_target = send_msg.sending_target,
-            send_hook = send_msg.send_hook,
-            render_hook = send_msg.render_hook,
-        )
-        await self.send_chat_send_msg(send_msg)
+        chat_send_msg = self.make_send_msg(send_msg, response)
+        await self.send_chat_send_msg(chat_send_msg)

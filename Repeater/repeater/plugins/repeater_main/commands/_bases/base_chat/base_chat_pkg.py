@@ -192,6 +192,26 @@ class BaseChat(CommandPackage):
                 }
             )
 
+    def make_send_msg(self, send_msg: SendMsg, response: Response[ChatResponse]) -> ChatSendMsg:
+        chat_send_msg = ChatSendMsg(
+            component = send_msg.component,
+            persona_info = send_msg.persona_info,
+            matcher = send_msg.matcher,
+            response = response,
+            reasoning_content_handler = self.reason_filters,
+            content_handler = self.filters,
+
+            reply = send_msg.reply,
+            prefix = send_msg.prefix,
+            suffix = send_msg.suffix,
+            target_group = send_msg.target_group,
+            target_user = send_msg.target_user,
+            send_target = send_msg.sending_target,
+            send_hook = send_msg.send_hook,
+            render_hook = send_msg.render_hook,
+        )
+        return chat_send_msg
+
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         logger.info(
             "Received a message {message} from {namespace}",
@@ -215,24 +235,7 @@ class BaseChat(CommandPackage):
             await send_msg.send_error_response(
                 response = response,
             )
-
-        chat_send_msg = ChatSendMsg(
-            component = send_msg.component,
-            persona_info = persona_info,
-            matcher = send_msg.matcher,
-            response = response,
-            reasoning_content_handler = self.reason_filters,
-            content_handler = self.filters,
-
-            reply = send_msg.reply,
-            prefix = send_msg.prefix,
-            suffix = send_msg.suffix,
-            target_group = send_msg.target_group,
-            target_user = send_msg.target_user,
-            send_target = send_msg.sending_target,
-            send_hook = send_msg.send_hook,
-            render_hook = send_msg.render_hook,
-        )
+        chat_send_msg = self.make_send_msg(send_msg, response)
         await self.send_chat_send_msg(chat_send_msg)
     
     def filters(self, text: str) -> str:

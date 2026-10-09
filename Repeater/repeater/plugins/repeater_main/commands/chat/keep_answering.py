@@ -35,19 +35,5 @@ class ChatKeepAnswering(BaseChat):
 
         response = await chat_client.send_message()
         
-        send_msg = ChatSendMsg(
-            send_msg.component,
-            persona_info,
-            response,
-            send_msg.matcher,
-
-            reply = send_msg.reply,
-            prefix = send_msg.prefix,
-            suffix = send_msg.suffix,
-            target_group = send_msg.target_group,
-            target_user = send_msg.target_user,
-            send_target = send_msg.sending_target,
-            send_hook = send_msg.send_hook,
-            render_hook = send_msg.render_hook,
-        )
-        await send_msg.send()
+        chat_send_msg = self.make_send_msg(send_msg, response)
+        await chat_send_msg.send()
