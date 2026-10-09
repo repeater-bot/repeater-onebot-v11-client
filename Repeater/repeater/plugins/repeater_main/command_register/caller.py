@@ -669,6 +669,24 @@ class CommandCaller:
             cls.statuses[status_id] = status_package
 
         return status_package
+
+    @classmethod
+    async def wait_status(cls, name: str, namespace: Namespace) -> None:
+        """
+        Wait a status.
+
+        :param name: The name of the status.
+        :return: The status.
+        """
+        async with cls.status_lock:
+            user_statuses = cls.statuses_map.get(namespace)
+            if user_statuses is None:
+                raise RuntimeError("The namespace is not found.")
+            status_id = user_statuses.get(name)
+            if status_id is None:
+                raise RuntimeError("The status is not found.")
+            status_package = cls.statuses[status_id]
+        await status_package.wait_finish()
     
     @classmethod
     async def finish_status(cls, name: str, namespace: Namespace) -> bool:
