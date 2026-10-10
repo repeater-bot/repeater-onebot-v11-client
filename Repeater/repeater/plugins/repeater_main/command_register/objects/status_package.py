@@ -8,7 +8,7 @@ class StatusPackage:
     This class is used to store the status of the repeater.
     """
 
-    event: asyncio.Event
+    future: asyncio.Future[None]
     """Status finish event."""
 
     status_id: uuid.UUID
@@ -21,22 +21,29 @@ class StatusPackage:
         """
         Check whether the status has been turned off.
         """
-        return self.event.is_set()
+        return self.future.done()
 
     def finish(self) -> None:
         """
         Turn off the status.
         """
-        self.event.set()
+        self.future.set_result(None)
 
     async def wait_finish(self) -> None:
         """
         Wait until the status is turned off.
         """
-        await self.event.wait()
+        await self.future
 
-    def clear(self) -> None:
+    def reset(self) -> None:
         """
         Clear the status.
         """
-        self.event.clear()
+        loop = asyncio.get_running_loop()
+        self.future = loop.create_future()
+
+    def cancel(self) -> None:
+        """
+        Cancel the status.
+        """
+        self.future.cancel()

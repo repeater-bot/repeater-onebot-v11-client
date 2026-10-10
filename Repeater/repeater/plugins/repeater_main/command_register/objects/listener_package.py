@@ -118,9 +118,3 @@ class ListenerPackage(Awaitable[PersonaInfo]):
         Return an iterator to be used in await expression.
         """
         return self.future.__await__()
-
-    def __class_getitem__(cls, item: type[PersonaInfo]) -> GenericAlias:
-        """
-        See PEP 585
-        """
-        return cls.future.__class_getitem__(item)

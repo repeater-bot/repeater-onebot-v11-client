@@ -15,7 +15,6 @@ from ..cmd_info import CmdTypes
 from ..client_configs import storage_configs
 from ..exceptions import *
 from nonebot.exception import NoneBotException
-from nonebot import get_driver
 from typing import (
     Any,
     Type,
@@ -49,6 +48,11 @@ from contextvars import ContextVar
 T_Handler_Result = TypeVar("T_Handler_Result")
 
 class CommandCaller:
+    """
+    复读机命令调度器
+    """
+
+    # 命令注册索引
     commands: dict[Type[CommandPackage[Any]], CommandPackage[Any]] = {}
     triggers: dict[str | tuple[str, ...], Type[CommandPackage[Any]]] = {}
     class_names: dict[str, Type[CommandPackage[Any]]] = {}
@@ -57,36 +61,53 @@ class CommandCaller:
     matchers: dict[Type[CommandPackage[Any]], Type[Matcher]] = {}
     components: dict[str, Type[CommandPackage[Any]]] = {}
 
+    # 运行中的命令
     runnings: dict[uuid.UUID, RunningPackage] = {}
     running_map: dict[Namespace, set[uuid.UUID]] = {}
     running_lock = asyncio.Lock()
 
+    # 变量系统
     variables: dict[Namespace, Variables[str]] = {}
     variable_lock = asyncio.Lock()
 
+    # 消息监听器
     message_listener: dict[uuid.UUID, ListenerPackage] = {}
-    message_listener_map: dict[Namespace, set[uuid.UUID]] = {}
-    group_message_listener_map: dict[str, set[uuid.UUID]] = {}
+    message_listener_map: dict[Namespace | str, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
 
+    # 信件监听器
+    # 
+    # PS：信件是一种命令对命令的通信通道
+    # 通过提交命名信件与监听命名信件来实现通信并传递数据
     letters_listener: dict[uuid.UUID, LettersPackage[Any]] = {}
     letters_listener_map: dict[Namespace, dict[str, uuid.UUID]] = {}
     letters_listener_lock: asyncio.Lock = asyncio.Lock()
 
+    # 管道系统
+    # 通过管道实现命令对命令的全双工通信
     pipes: dict[uuid.UUID, PipePackage[Any, Any]] = {}
     pipe_map: dict[Namespace, dict[str, uuid.UUID]] = {}
     pipe_lock: asyncio.Lock = asyncio.Lock()
 
+    # 状态系统
+    # 通过状态实现命令对命令的事件通信
+    # 与信件类似但不可传递数据，只能传递状态
     statuses: dict[uuid.UUID, StatusPackage] = {}
     statuses_map: dict[Namespace, dict[str, uuid.UUID]] = {}
     status_lock: asyncio.Lock = asyncio.Lock()
 
+    # 外部触发器服务器循环挂载位置
     et_server_task: asyncio.Task | None = None
 
+    # 命令横向调用的索引记录
+    # 正向查询可获得命令数
+    # 反向查询可获得执行栈
     forward_call_index: dict[uuid.UUID, set[uuid.UUID]] = {}
     reverse_call_index: dict[uuid.UUID, uuid.UUID] = {}
     call_index_lock = asyncio.Lock()
 
+    # 接口使用的上下文变量
+    # 用于在接口中传递数据
     _identity: ContextVar[CommandPackage[Any] | None] = ContextVar("_identity", default=None)
     _task_id: ContextVar[uuid.UUID | None] = ContextVar("_task_id", default=None)
 
@@ -150,9 +171,8 @@ class CommandCaller:
                 )
             )
         await asyncio.gather(*tasks)
-        
-        for listening in cls.message_listener.values():
-            listening.cancel()
+
+        await cls.close_packages()
         
         end_time = time.perf_counter_ns()
 
@@ -242,6 +262,46 @@ class CommandCaller:
             "Broadcast Disconnect Event Complete, {time:.2f}ms.",
             time = (end_time - start_time) / 1e6
         )
+
+    @classmethod
+    async def close_packages(cls):
+        """
+        Close all packages.
+        """
+        async with cls.message_listener_lock:
+            for listening in cls.message_listener.values():
+                listening.cancel()
+            
+            cls.message_listener = {}
+            cls.message_listener_map = {}
+
+        async with cls.running_lock:
+            for runnings in cls.runnings.values():
+                runnings.cancel()
+
+            cls.runnings = {}
+            cls.running_map = {}
+
+        async with cls.letters_listener_lock:
+            for letter in cls.letters_listener.values():
+                letter.cancel()
+            
+            cls.letters_listener = {}
+            cls.letters_listener_map = {}
+
+        async with cls.pipe_lock:
+            for pipe in cls.pipes.values():
+                await pipe.close()
+
+            cls.pipes = {}
+            cls.pipe_map = {}
+
+        async with cls.status_lock:
+            for status in cls.statuses.values():
+                status.cancel()
+
+            cls.statuses = {}
+            cls.statuses_map = {}
 
     @classmethod
     async def get_task_id(cls) -> uuid.UUID:
@@ -509,10 +569,9 @@ class CommandCaller:
             )
 
             if listen_group:
-                if namespace.is_group and namespace.group_id is not None:
-                    cls.group_message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
-                else:
-                    raise ValueError("listen_group requires a group namespace")
+                if namespace.group_id is None:
+                    raise ValueError(f"Namespace {namespace} is not have group_id")
+                cls.message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
             else:
                 cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
             cls.message_listener[listener_id] = listen_package
@@ -651,14 +710,15 @@ class CommandCaller:
         :param name: The name of the status package.
         :return: The status package.
         """
-        event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
         sponsor = cls._task_id.get()
         if sponsor is None:
             raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
 
         status_id = uuid.uuid4()
         status_package = StatusPackage(
-            event = event,
+            future = future,
             status_id = status_id,
             sponsor = sponsor
         )
@@ -728,10 +788,6 @@ class CommandCaller:
                     listener = cls.message_listener.get(listener_id)
                     if listener is not None:
                         listener.cancel()
-                        if listener.target.group_id is not None:
-                            group_listener_map = cls.group_message_listener_map.get(listener.target.group_id)
-                            if group_listener_map is not None:
-                                group_listener_map.discard(listener_id)
                 cls.message_listener_map.pop(namespace, None)
                 logger.info(
                     "Cancel Wait {namespace} Message Task Success",
@@ -760,10 +816,6 @@ class CommandCaller:
                     listener_map = cls.message_listener_map.get(listener.target)
                     if listener_map is not None:
                         listener_map.discard(listener_id)
-                    if listener.target.group_id is not None:
-                        group_listener_map = cls.group_message_listener_map.get(listener.target.group_id)
-                        if group_listener_map is not None:
-                            group_listener_map.discard(listener_id)
                 cls.message_listener.pop(listener_id, None)
                 logger.info(
                     "Cancel listener: {listener_id}",
@@ -1669,15 +1721,15 @@ class CommandCaller:
                     )
                 )
 
-            if namespace.is_group and namespace.group_id and namespace.group_id in cls.group_message_listener_map:
-                group_listener_ids = cls.group_message_listener_map.pop(namespace.group_id)
-
-                listeners.extend(
-                    cls._submit_message(
-                        task_ids = group_listener_ids,
-                        persona_info = persona_info
+            if persona_info.group_id is not None:
+                if persona_info.group_id in cls.message_listener_map:
+                    listener_ids = cls.message_listener_map.pop(persona_info.group_id)
+                    listeners.extend(
+                        cls._submit_message(
+                            task_ids = listener_ids,
+                            persona_info = persona_info
+                        )
                     )
-                )
 
             for listener in listeners:
                 if allow_block_propagation and listener.block_propagation:

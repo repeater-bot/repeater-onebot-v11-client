@@ -9,12 +9,7 @@ from typing import (
     Generator,
     TypeVar
 )
-from types import (
-    GenericAlias
-)
-
 from dataclasses import dataclass
-from ...assist import PersonaInfo, Namespace
 
 T = TypeVar("T")
 
@@ -115,9 +110,3 @@ class LettersPackage(Awaitable[T]):
         Return an iterator to be used in await expression.
         """
         return self.future.__await__()
-
-    def __class_getitem__(cls, item: type[T]) -> GenericAlias:
-        """
-        See PEP 585
-        """
-        return cls.future.__class_getitem__(item)
