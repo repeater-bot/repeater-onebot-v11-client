@@ -131,15 +131,34 @@ class ChatSendMsg(SendMsg):
             merged_content = merged_content.strip()
         return self._content_handler(merged_content)
     
-    async def _check_response(self) -> None | NoReturn:
+    async def check_response(
+        self,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False
+    ) -> None | NoReturn:
         if self.is_debug_mode:
-            await self.send_debug_mode()
+            await self.send_debug_mode(
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
         
-        if self._response.code != 200 and self._error is not None:
-            await self.send_error_response(self._error)
+        elif self._response.code != 200 and self._error is not None:
+            await self.send_error_response(
+                self._error,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
         
-        if self._response.exception_info and self._response.exception_info.exc_value is not None:
-            await self.send_error(self._response.exception_info.exc_value)
+        elif self._response.exception_info and self._response.exception_info.exc_value is not None:
+            await self.send_error(
+                self._response.exception_info.exc_value,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
     
     def _get_response_usage(self) -> str:
         if self._data is None:
@@ -214,7 +233,11 @@ class ChatSendMsg(SendMsg):
         :param continue_handler: Whether to continue the handler.
         """
 
-        await self._check_response()
+        await self.check_response(
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
         user_configs = await self.persona_info.get_user_configs()
         chat_output = user_configs.chat_output
 
@@ -298,7 +321,11 @@ class ChatSendMsg(SendMsg):
             break_code: int = 0,
             continue_handler: bool = False
         ) -> None:
-        await self._check_response()
+        await self.check_response(
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
 
         if self.reasoning_content:
             await self.send_render(
@@ -400,8 +427,6 @@ class ChatSendMsg(SendMsg):
             style: str | None = None,
             html_template: str | None = None
         ) -> Message:
-        await self._check_response()
-        
         tasks: list[asyncio.Task[MessageSegment]] = []
         reasoning_content = self.reasoning_content
         tools_content = self.tools_content
