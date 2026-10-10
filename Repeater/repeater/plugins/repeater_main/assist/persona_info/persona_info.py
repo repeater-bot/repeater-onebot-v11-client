@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import copy
 import uuid
 
@@ -805,6 +806,14 @@ class PersonaInfo:
         消息字符串（去除首尾空格）
         """
         return self.message_str.strip()
+    
+    def match_message(self, pattern: re.Pattern) -> re.Match[str] | None:
+        """
+        匹配消息字符串
+
+        :param pattern: 正则表达式
+        """
+        return pattern.match(self.message_stripped_str)
     
     @property
     def event_message_striped_str(self) -> str:
