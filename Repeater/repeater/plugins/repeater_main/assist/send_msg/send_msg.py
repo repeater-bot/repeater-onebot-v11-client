@@ -47,7 +47,7 @@ from ...exceptions import (
 )
 from ...logger import logger as base_logger
 from .sending_target import SendingTarget
-from .text_tender_exceptions import (
+from .text_render_exceptions import (
     InvalidResponseData,
     RenderResponseException,
     NotInitializedResponse,
@@ -1254,7 +1254,7 @@ class SendMsg:
             document_bottom_comment: str = "",
             style: str | None = None,
             html_template: str | None = None,
-            reply: bool = False,
+            reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
         ) -> NoReturn: ...
@@ -1267,7 +1267,7 @@ class SendMsg:
             document_bottom_comment: str = "",
             style: str | None = None,
             html_template: str | None = None,
-            reply: bool = False,
+            reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
         ) -> None: ...
@@ -1376,6 +1376,7 @@ class SendMsg:
         )
         image = await self.render_text_to_msg_segment(
             text,
+            title = title,
             document_bottom_comment = document_bottom_comment,
             style = style,
             html_template = html_template
@@ -1585,7 +1586,7 @@ class SendMsg:
                         message = f"[Error Info Is Invalid]"
                     texts.append(message)
                 else:
-                    texts.append(f"HTTP Code: {error.code}{HTTPCode(error.code).message})\nException Message: {error.text}")
+                    texts.append(f"HTTP Code: {error.code}({HTTPCode(error.code).message})\nException Message: {error.text}")
 
         text = "\n".join(texts)
         length_score = self.text_length_score(text)
@@ -1732,7 +1733,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1747,7 +1748,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1761,7 +1762,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1800,7 +1801,7 @@ class SendMsg:
             await self.send_mixed_render(
                 f"```\n{text}\n```" if code_block else text,
                 title = title,
-                document_bottom_comment = document_bottom_comments,
+                document_bottom_comment = document_bottom_comment,
                 style = style,
                 html_template = html_template,
                 reply = reply,
@@ -2544,7 +2545,6 @@ class SendMsg:
                 file_name = file_name
             ),
         )
-
         if self._send_hook is not None:
             await self._send_hook(
                 target = SendingTarget.API,

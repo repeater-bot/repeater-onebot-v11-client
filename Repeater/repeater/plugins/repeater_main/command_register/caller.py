@@ -97,7 +97,7 @@ class CommandCaller:
     status_lock: asyncio.Lock = asyncio.Lock()
 
     # 外部触发器服务器循环挂载位置
-    et_server_task: asyncio.Task | None = None
+    et_server_task: asyncio.Task[None] | None = None
 
     # 命令横向调用的索引记录
     # 正向查询可获得命令数
@@ -145,7 +145,7 @@ class CommandCaller:
                     command.on_framework_startup()
                 )
             )
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
         end_time = time.perf_counter_ns()
 
         logger.info(
@@ -163,6 +163,9 @@ class CommandCaller:
         )
 
         start_time = time.perf_counter_ns()
+        if cls.et_server_task is not None:
+            await et_server.shutdown()
+            cls.et_server_task.cancel()
         tasks: list[asyncio.Task] = []
         for command in cls.commands.values():
             tasks.append(
@@ -170,7 +173,7 @@ class CommandCaller:
                     command.on_framework_shutdown()
                 )
             )
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         await cls.close_packages()
         
@@ -225,7 +228,7 @@ class CommandCaller:
                     command.on_bot_connect(bot)
                 )
             )
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
         end_time = time.perf_counter_ns()
 
         logger.info(
@@ -255,7 +258,7 @@ class CommandCaller:
                     command.on_bot_disconnect(bot)
                 )
             )
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
         end_time = time.perf_counter_ns()
 
         logger.info(
@@ -302,6 +305,13 @@ class CommandCaller:
 
             cls.statuses = {}
             cls.statuses_map = {}
+
+        async with cls.variable_lock:
+            cls.variables = {}
+
+        async with cls.call_index_lock:
+            cls.forward_call_index = {}
+            cls.reverse_call_index = {}
 
     @classmethod
     async def get_task_id(cls) -> uuid.UUID:
@@ -402,7 +412,7 @@ class CommandCaller:
             runnings = cls.running_map.get(namespace, set())
             if task_id not in runnings:
                 return None
-            return cls.runnings[task_id]
+            return cls.runnings.get(task_id)
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
@@ -783,15 +793,31 @@ class CommandCaller:
                 namespace = namespace.namespace_str,
             )
             if namespace in cls.message_listener_map:
-                listener_ids = cls.message_listener_map[namespace]
+                listener_ids = cls.message_listener_map.get(namespace)
+                if not listener_ids:
+                    return False
                 for listener_id in listener_ids:
-                    listener = cls.message_listener.get(listener_id)
+                    listener = cls.message_listener.pop(listener_id, None)
                     if listener is not None:
                         listener.cancel()
                 cls.message_listener_map.pop(namespace, None)
                 logger.info(
                     "Cancel Wait {namespace} Message Task Success",
                     namespace = namespace.namespace_str,
+                )
+                return True
+            elif namespace.group_id is not None and namespace.group_id in cls.message_listener_map:
+                listener_ids = cls.message_listener_map.pop(namespace.group_id)
+                if not listener_ids:
+                    return False
+                for listener_id in listener_ids:
+                    listener = cls.message_listener.pop(listener_id, None)
+                    if listener is not None:
+                        listener.cancel()
+                cls.message_listener_map.pop(namespace.group_id, None)
+                logger.info(
+                    "Cancel Wait Group_{group} Message Task Success",
+                    namespace = namespace.group_id,
                 )
                 return True
         return False
@@ -816,6 +842,15 @@ class CommandCaller:
                     listener_map = cls.message_listener_map.get(listener.target)
                     if listener_map is not None:
                         listener_map.discard(listener_id)
+                        if not listener_map:
+                            cls.message_listener_map.pop(listener.target, None)
+                    if listener.target.group_id is not None:
+                        group_listener_map = cls.message_listener_map.get(listener.target.group_id)
+                        if group_listener_map is not None:
+                            group_listener_map.discard(listener_id)
+                            if not group_listener_map:
+                                cls.message_listener_map.pop(listener.target.group_id, None)
+                            
                 cls.message_listener.pop(listener_id, None)
                 logger.info(
                     "Cancel listener: {listener_id}",
@@ -909,7 +944,7 @@ class CommandCaller:
         cls._identity.set(package)
         cls._task_id.set(task_id)
         
-        result = await cls._enter_hander(
+        result = await cls._enter_handler(
             task_id,
             package,
             persona_info,
@@ -937,7 +972,7 @@ class CommandCaller:
         return result
     
     @classmethod
-    async def _enter_hander(
+    async def _enter_handler(
         cls,
         task_id: uuid.UUID,
         package: CommandPackage[T_Handler_Result],
@@ -1025,6 +1060,13 @@ class CommandCaller:
         send_msg: SendMsg | None = None,
         debug_mode: bool | None = None
     ):
+        if isinstance(package, CommandPackage):
+            package_instance = package
+        elif isinstance(package, type) and issubclass(package, CommandPackage):
+            package_instance: CommandPackage[T_Handler_Result] = cls.commands[package]
+        else:
+            raise TypeError("package must be CommandPackage or subclass of CommandPackage")
+        
         try:
             cron_iter = croniter(
                 expr_format = cron,
@@ -1038,13 +1080,13 @@ class CommandCaller:
             delta = next_time - now
             logger.info(
                 "{command} next runtime is {next_time}(wait {delta} seconds)",
-                command = package.component,
+                command = package_instance.component,
                 next_time = next_time,
                 delta = delta.total_seconds()
             )
             await asyncio.sleep(delta.total_seconds())
             await cls.horizontal_call(
-                package = package,
+                package = package_instance,
                 persona_info = persona_info,
                 send_msg = send_msg,
                 debug_mode = debug_mode
@@ -1159,15 +1201,29 @@ class CommandCaller:
         persona_info_copy, send_msg_copy = await package_instance.horizontal_enter(persona_info, send_msg, task_id)
         loop = asyncio.get_running_loop()
         created: asyncio.Future[RunningPackage[T_Handler_Result]] = loop.create_future()
-        asyncio.create_task(
-            cls._horizontal_enter(
-                task_id = task_id,
-                package = package_instance,
-                persona_info = persona_info_copy,
-                send_msg = send_msg_copy,
-                debug_mode = debug_mode,
-                created = created,
-            )
+        async def _task_exception_processor():
+            nonlocal cls
+            nonlocal task_id
+            nonlocal package_instance
+            nonlocal persona_info_copy
+            nonlocal send_msg_copy
+            nonlocal debug_mode
+            nonlocal created
+
+            try:
+                await cls._horizontal_enter(
+                    task_id = task_id,
+                    package = package_instance,
+                    persona_info = persona_info_copy,
+                    send_msg = send_msg_copy,
+                    debug_mode = debug_mode,
+                    created = created,
+                )
+            except BaseException as e:
+                created.set_exception(e)
+        
+        task = asyncio.create_task(
+            coro=_task_exception_processor(),
         )
         return await created
 
@@ -1308,8 +1364,9 @@ class CommandCaller:
             register_start_time = time.perf_counter_ns()
             try:
                 package_instance, matcher, handler = cls._make_pack(package, *args, **kwargs)
-            except:
+            except Exception as e:
                 package.on_reg_failed(*sys.exc_info())
+                raise # Make sure the follow-up will not be carried out.
             
             cls._reg_package_instance(
                 package = package,
@@ -1361,14 +1418,15 @@ class CommandCaller:
         """
         package.on_before_instantiate()
 
-        package_raw_new = package.__new__
-        def package_new(cls: Type[CommandPackage[T_Handler_Result]]):
-            nonlocal package_raw_new
-            package_instance = package_raw_new(cls)
-            package_instance.__pre_init__()
-            return package_instance
-        package.__new__ = package_new
-        package.__raw_new__ = package_raw_new
+        if package.__raw_new__ is None:
+            package_raw_new = package.__new__
+            def package_new(cls: Type[CommandPackage[T_Handler_Result]], *args: Any, **kwargs: Any):
+                nonlocal package_raw_new
+                package_instance = package_raw_new(cls, *args, **kwargs)
+                package_instance.__pre_init__()
+                return package_instance
+            package.__new__ = package_new
+            package.__raw_new__ = package_raw_new
 
         package_instance = package(*args, **kwargs)
         package_instance.__time_for_created__ = time.time_ns()
@@ -1436,7 +1494,7 @@ class CommandCaller:
         package: Type[CommandPackage[T_Handler_Result]],
     ) -> tuple[
         CommandPackage[Any],
-        type[Matcher]
+        type[Matcher] | None
     ]:
         """
         Unregister a package instance
@@ -1444,20 +1502,24 @@ class CommandCaller:
         :param package: Package class
         :return: Package instance and Matcher class
         """
-        package_instance: CommandPackage[Any] = cls.commands.pop(package)
-        main_trigger: Type[CommandPackage[Any]] = cls.triggers.pop(package.cmd)
+        package_instance: CommandPackage[Any] | None = cls.commands.pop(package, None)
+        if package_instance is None:
+            raise KeyError("We can not log off all resources from the package instance because we can not find the package instance.")
+        main_trigger: Type[CommandPackage[Any]] | None = cls.triggers.pop(package.cmd, None)
         if package_instance.cmd_type in cls.types:
             cls.types[package_instance.cmd_type].discard(package)
-        triggers: list[Type[CommandPackage[T_Handler_Result]]] = []
-        components: Type[CommandPackage[Any]] = cls.components.pop(package_instance.component)
+        triggers: list[Type[CommandPackage[T_Handler_Result]] | None] = []
+        components: Type[CommandPackage[Any]] | None = cls.components.pop(package_instance.component, None)
+        classes: Type[CommandPackage[Any]] | None = cls.classes.discard(package)
+        class_names: Type[CommandPackage[Any]] | None = cls.class_names.pop(package.__name__, None)
         if package_instance.aliases is not None:
             triggers = [
-                cls.triggers.pop(trigger)
+                cls.triggers.pop(trigger, None)
                 for trigger in
                 cls.get_package_aliases(package_instance)
             ]
         
-        matcher: Type[Matcher] = cls.matchers.pop(package)
+        matcher: Type[Matcher] | None = cls.matchers.pop(package, None)
 
         return (
             package_instance,
@@ -1491,6 +1553,7 @@ class CommandCaller:
 
         if package in cls.classes:
             package.on_duplicate_type()
+        cls.classes.add(package)
 
         if package_instance.component in cls.components:
             package_instance.on_duplicate_component(
@@ -1593,7 +1656,8 @@ class CommandCaller:
             )
             
             package_instance.on_destroy()
-            matcher.destroy()
+            if matcher is not None:
+                matcher.destroy()
     
     @classmethod
     async def adestroy(cls, package: Type[CommandPackage[T_Handler_Result]]) -> None:
@@ -1603,8 +1667,7 @@ class CommandCaller:
         :param package: The package of the Handler
         """
         if package in cls.commands:
-            package_instance: CommandPackage[Any] = cls.commands.pop(package)
-            matcher: Type[Matcher] = cls.matchers.pop(package)
+            package_instance, matcher = cls._unreg_package_instance(package)
 
             logger.info(
                 "Async Destroy command: {name}",
@@ -1612,7 +1675,8 @@ class CommandCaller:
             )
             
             await package_instance.on_adestroy()
-            matcher.destroy()
+            if matcher is not None:
+                matcher.destroy()
 
     @staticmethod
     def get_package_aliases(package: CommandPackage) -> set[str | tuple[str, ...]]:
@@ -1713,23 +1777,25 @@ class CommandCaller:
         async with cls.message_listener_lock:
             listeners: list[ListenerPackage] = []
             if namespace in cls.message_listener_map:
-                listener_ids = cls.message_listener_map.pop(namespace)
-                listeners.extend(
-                    cls._submit_message(
-                        task_ids = listener_ids,
-                        persona_info = persona_info
-                    )
-                )
-
-            if persona_info.group_id is not None:
-                if persona_info.group_id in cls.message_listener_map:
-                    listener_ids = cls.message_listener_map.pop(persona_info.group_id)
+                listener_ids = cls.message_listener_map.pop(namespace, None)
+                if listener_ids is not None:
                     listeners.extend(
                         cls._submit_message(
                             task_ids = listener_ids,
                             persona_info = persona_info
                         )
                     )
+
+            if persona_info.group_id is not None:
+                if persona_info.group_id in cls.message_listener_map:
+                    listener_ids = cls.message_listener_map.pop(persona_info.group_id, None)
+                    if listener_ids is not None:
+                        listeners.extend(
+                            cls._submit_message(
+                                task_ids = listener_ids,
+                                persona_info = persona_info
+                            )
+                        )
 
             for listener in listeners:
                 if allow_block_propagation and listener.block_propagation:

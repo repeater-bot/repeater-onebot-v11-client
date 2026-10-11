@@ -8,7 +8,6 @@ from ._client_info import ClientInfo
 class ClientPool:
     def __init__(self, cache_size: int = 100):
         self._clients: LRUCache[ClientInfo, AsyncClient] = LRUCache(maxsize=cache_size)
-        self._pool_lock = asyncio.Lock()
         self._cache_hits: int = 0
         self._cache_misses: int = 0
         self._cache_size: int = cache_size
@@ -49,6 +48,9 @@ class ClientPool:
             return client
     
     def remove_client(self, client_info: ClientInfo):
+        """
+        Remove a client from the pool.
+        """
         if client_info in self._clients:
             self._clients.pop(client_info)
         else:

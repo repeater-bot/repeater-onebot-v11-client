@@ -1,5 +1,4 @@
 from .assist_func import (
-    at_with_name,
     get_first_mentioned_user,
     image_to_text,
     get_reply_msgs,
@@ -106,7 +105,6 @@ from .models import (
 )
 
 __all__ = [
-    "at_with_name",
     "get_first_mentioned_user",
     "image_to_text",
     "get_reply_msgs",
@@ -132,7 +130,6 @@ __all__ = [
     "make_message_event",
     "get_private_message_history",
     "get_group_message_history",
-    "is_empty_message",
     "is_empty_message",
     "get_group_member_info",
     "get_group_member_list",

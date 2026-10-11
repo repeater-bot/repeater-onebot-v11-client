@@ -54,9 +54,9 @@ class BaseClient:
     def base_url(self) -> str:
         backend_url = self.backend_url
         if self.base_router is None:
-            url = urljoin(backend_url, self.base_router)
-        else:
             url = backend_url
+        else:
+            url = urljoin(backend_url, self.base_router)
         return url
     
     def join_url(

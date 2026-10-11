@@ -23,7 +23,6 @@ from typing import (
     Callable
 )
 from ..assist_func import (
-    at_with_name,
     image_to_text,
     get_reply_msgs,
     get_forward_msgs,
@@ -118,7 +117,6 @@ class PersonaInfo:
         self._group_name: str | None = None
         self._source = MessageSource(event.message_type.strip().lower())
         self._enter_type: EnterType = enter_type
-        self._raw_message_event: MessageEvent | None = None
         self._self_id: str = bot.self_id
 
         if self._source == MessageSource.GROUP:
@@ -378,7 +376,7 @@ class PersonaInfo:
 
     async def from_message_history(
             self,
-            score: MessageSource,
+            source: MessageSource,
             id: str | int = "",
             message_id: int = 0,
             count: int = 20,
@@ -389,7 +387,7 @@ class PersonaInfo:
         """
         从消息历史构建 PersonaInfo 实例
 
-        :param score: 消息来源
+        :param source: 消息来源
         :param id: 群组 ID
         :param message_id: 消息 ID
         :param count: 数量
@@ -397,7 +395,7 @@ class PersonaInfo:
         :param copydata: 是否复制数据
         :param deepcopy: 是否深拷贝数据
         """
-        match score:
+        match source:
             case MessageSource.GROUP:
                 messages = await get_group_message_history(
                     bot = self.cached_api,
@@ -816,7 +814,7 @@ class PersonaInfo:
         return pattern.match(self.message_stripped_str)
     
     @property
-    def event_message_striped_str(self) -> str:
+    def event_message_stripped_str(self) -> str:
         """
         消息事件字符串（去除首尾空格）
         """
@@ -892,12 +890,6 @@ class PersonaInfo:
             if segment.type == "at":
                 at_list.append(segment.data["qq"])
         return at_list
-    
-    async def handle_at_with_name(self) -> Message:
-        """
-        处理@消息，将@的 user_id 替换为昵称
-        """
-        return await at_with_name(self._cached_api, self._message_event)
     
     async def image_to_text(self, format: str = "{text}", cite: bool = True, excluded_tags:Container[str] = {}) -> Message:
         """

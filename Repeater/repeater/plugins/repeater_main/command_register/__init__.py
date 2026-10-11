@@ -5,7 +5,7 @@ from .objects import (
     RunningPackage, 
     SubCmdExit,
     SubCmdBreaked,
-    SubCmdCacelled,
+    SubCmdCancelled,
     SubCmdTimeout,
     LettersPackage,
     PipePackage
@@ -28,7 +28,7 @@ __all__ = [
     "RunningPackage",
     "SubCmdExit",
     "SubCmdBreaked",
-    "SubCmdCacelled",
+    "SubCmdCancelled",
     "SubCmdTimeout",
     "LettersPackage",
     "PipePackage",

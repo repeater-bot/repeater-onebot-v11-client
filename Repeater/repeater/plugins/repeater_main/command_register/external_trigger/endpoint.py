@@ -12,48 +12,53 @@ async def external_trigger_call(request: ExternalTriggerRequest):
     """
     External trigger call endpoint
     """
-    callback = register_external_trigger.get(request.bot_id)
+    error: BaseException | None = None
+    try:
+        callback = register_external_trigger.get(request.bot_id)
 
-    if callback is None:
-        raise HTTPException(
-            status_code = 404,
-            detail = "Bot is not registered"
+        if callback is None:
+            raise HTTPException(
+                status_code = 404,
+                detail = "Bot is not registered"
+            )
+
+        message = Message(request.message)
+        if request.args is None:
+            args = None
+        else:
+            args = Message(request.args)
+        namespace = Namespace.from_str(request.namespace)
+
+        event = make_message_event(
+            self_id = int(request.bot_id),
+            namespace = namespace,
+            message = message,
+            message_id = request.message_id,
+        
+            font = request.font,
+            nickname = request.nickname,
+            sex = request.sex,
+            age = request.age,
+            card = request.card,
+            area = request.area,
+            level = request.level,
+            role = request.role,
+            title = request.title,
+            to_me = request.to_me,
+            sub_type = request.sub_type,
         )
 
-    message = Message(request.message)
-    if request.args is None:
-        args = None
-    else:
-        args = Message(request.args)
-    namespace = Namespace.from_str(request.namespace)
-
-    event = make_message_event(
-        self_id = int(request.bot_id),
-        namespace = namespace,
-        message = message,
-        message_id = request.message_id,
-    
-        font = request.font,
-        nickname = request.nickname,
-        sex = request.sex,
-        age = request.age,
-        card = request.card,
-        area = request.area,
-        level = request.level,
-        role = request.role,
-        title = request.title,
-        to_me = request.to_me,
-        sub_type = request.sub_type,
-    )
-
-    results, rendered_texts, retcode = await callback(
-        request.handler,
-        event,
-        args
-    )
+        results, rendered_texts, retcode = await callback(
+            request.handler,
+            event,
+            args
+        )
+    except BaseException as e:
+        error = e
 
     return ExternalTriggerResponse(
         messages = [str(result) for result in results],
         rendered_texts = rendered_texts,
+        error = f"{error.__class__.__name__}: {str(error)}" if error is not None else None,
         retcode = retcode
     )

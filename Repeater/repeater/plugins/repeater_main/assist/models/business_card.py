@@ -1,10 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class CustomStatus(BaseModel):
+    model_config = ConfigDict(
+        extra = "allow"
+    )
+    
     faceId: int = 0
     wording: str = ""
 
 class BusinessCard(BaseModel):
+    model_config = ConfigDict(
+        extra = "allow"
+    )
+
     user_id: int = 0
     uid: str = ""
     qid: str = ""

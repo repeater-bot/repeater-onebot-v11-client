@@ -26,3 +26,5 @@ async def send_file(
                 url,
                 file_name,
             )
+        case _:
+            raise ValueError("Invalid source")

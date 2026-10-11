@@ -8,7 +8,9 @@ class RenderResponseException(TextRenderException):
     """Exception raised for errors in the render response."""
     def __init__(self, response: Response):
         self.response = response
-        self.message = f"Render response error: {self.response.text}"
+        self.message: str = "Render response error, response not initialized"
+        if response:
+            self.message = f"Render response error: {self.response.text}"
         super().__init__(self.message)
 
 

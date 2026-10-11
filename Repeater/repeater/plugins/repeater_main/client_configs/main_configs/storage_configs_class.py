@@ -11,7 +11,7 @@ from .platform_interface import PlatformInterface
 from .loading import LoadingConfigs
 from .generate_image_file_type import GenerateImageFileType
 from .render_error_message import RenderErrorMessage
-from .cilent_limits import ClientLimits
+from .client_limits import ClientLimits
 from .ignore_enter import IgnoreEnter
 from .permission_rule import PermissionRule
 from .external_trigger_server import ExternalTriggerServer

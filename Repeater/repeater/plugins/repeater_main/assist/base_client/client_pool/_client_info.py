@@ -29,7 +29,7 @@ class ClientInfo(BaseModel, frozen=True):
     ) -> AsyncClient:
         if self.timeout is None:
             timeout = None
-        if isinstance(self.timeout, int | float):
+        elif isinstance(self.timeout, int | float):
             timeout = self.timeout
         elif isinstance(self.timeout, ClientTimeout):
             timeout = self.timeout.to_timeout()

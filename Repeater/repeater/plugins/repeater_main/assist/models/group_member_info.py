@@ -1,7 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class GroupMemberInfo(BaseModel):
+    model_config = ConfigDict(
+        extra = "allow"
+    )
+
     group_id: int = 0
     user_id: int = 0
     nickname: str = ""

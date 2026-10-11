@@ -1,6 +1,6 @@
 from .behavioral_act import BehavioralACT
 from .camouflage import Camouflage, LimitSpeedPerMinute
-from .cilent_limits import ClientLimits
+from .client_limits import ClientLimits
 from .generate_image_file_type import GenerateImageFileType
 from .hello_content import (
     HelloContent,

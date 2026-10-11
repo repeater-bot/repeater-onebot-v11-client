@@ -56,7 +56,7 @@ from typing import (
 )
 from .sub_cmd_exit import (
     SubCmdBreaked,
-    SubCmdCacelled,
+    SubCmdCancelled,
     SubCmdTimeout
 )
 from ..typings import (
@@ -82,7 +82,7 @@ class CommandPackage(ABC, Generic[T]):
     __time_for_registered_monotonic__: int
     """Time for registered (monotonic)"""
 
-    __raw_new__: New
+    __raw_new__: New | None = None
     """raw `__new__` method"""
 
     cmd: str | tuple[str, ...]
@@ -481,7 +481,7 @@ class CommandPackage(ABC, Generic[T]):
         :param send_msg: The send_msg object
         """
         logger.warning(f"{self.component} cancelled")
-        return SubCmdCacelled
+        return SubCmdCancelled
 
     async def on_timeout(self, persona_info: PersonaInfo, send_msg: SendMsg) -> T | Any | None | NoReturn:
         """
@@ -655,7 +655,7 @@ class CommandPackage(ABC, Generic[T]):
         :param persona_info: The persona_info object
         :param send_msg: The send_msg object
         """
-        if storage_configs.loading.throw_on_duplicate.handler:
+        if storage_configs.loading.throw_on_duplicate.component:
             raise ValueError(f"Component {cls.package_path()} and {other.package_path()} is already registered")
         else:
             logger.warning(

@@ -21,3 +21,5 @@ def is_empty_message(msg: str | Message | MessageSegment) -> bool:
         elif msg.type not in ["at", "reply"]:
             return False
         return True
+    else:
+        raise TypeError(f"Invalid message type: {msg.__class__.__name__}")

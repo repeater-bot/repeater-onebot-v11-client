@@ -4,7 +4,7 @@ from .running_package import RunningPackage
 from .sub_cmd_exit import (
     SubCmdExit,
     SubCmdBreaked,
-    SubCmdCacelled,
+    SubCmdCancelled,
     SubCmdTimeout,
 )
 from .listener_package import ListenerPackage
@@ -18,7 +18,7 @@ __all__ = [
     "RunningPackage",
     "SubCmdExit",
     "SubCmdBreaked",
-    "SubCmdCacelled",
+    "SubCmdCancelled",
     "ListenerPackage",
     "SubCmdTimeout",
     "LettersPackage",
