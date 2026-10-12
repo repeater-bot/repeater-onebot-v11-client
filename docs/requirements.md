@@ -17,5 +17,6 @@
 | typing-extensions | 4.16.0| Python Software Foundation License | [PSFL](https://github.com/python/typing_extensions/blob/master/typing_extensions/LICENSE) | *Entire Project* |
 | fastapi    | 0.127.0 | MIT License  | [MIT](https://github.com/fastapi/fastapi/blob/master/LICENSE)          | external_trigger              |
 | uvicorn    | 0.39.0  | BSD License  | [BSD-3-Clause](https://github.com/Kludex/uvicorn/blob/master/LICENSE)  | external_trigger              |
+| rapidfuzz  | 3.14.6  | MIT License  | [MIT](https://github.com/rapidfuzz/RapidFuzz/blob/main/LICENSE)        | *Entire Project*              |
 
 具体依赖的License请查看[LICENSES](./../LICENSES)

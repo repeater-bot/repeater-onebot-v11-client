@@ -17,3 +17,8 @@
 [开始了解外部触发器](./external_trigger/external_trigger.md)
 是可以由 HTTP 请求直接触发指定 Handler 的机制
 通过对指定端口的指定路由发送请求，直接对指定 Handler 发送请求
+
+## Requirements
+
+[开始浏览 Requirements 列表](./requirements.md)
+列出项目所需要的依赖
