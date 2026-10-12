@@ -60,7 +60,7 @@ class Ratios:
         """
         return fuzz.token_set_ratio(self.source, self.target)
 
-    def wratio(self) -> float:
+    def wratio(self, processor) -> float:
         """
         Calculates a weighted ratio based on the other ratio algorithms
         """
