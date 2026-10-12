@@ -35,6 +35,7 @@ from .is_empty_message import is_empty_message
 from .get_group_member_info import get_group_member_info
 from .get_group_member_list import get_group_member_list
 from .get_stranger_info import get_stranger_info
+from .sync_to_async_iter import SyncToAsyncIter
 
 __all__ = [
     "get_first_mentioned_user",
@@ -66,4 +67,5 @@ __all__ = [
     "get_group_member_info",
     "get_group_member_list",
     "get_stranger_info",
+    "SyncToAsyncIter"
 ]

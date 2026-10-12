@@ -29,6 +29,7 @@ from .assist_func import (
     get_group_member_info,
     get_group_member_list,
     get_stranger_info,
+    SyncToAsyncIter
 )
 from .persona_info import (
     EnterType,
@@ -103,6 +104,11 @@ from .models import (
     BusinessCard,
     CustomStatus,
 )
+from .fuzzy import (
+    Ratios,
+    FuzzyMatch,
+    Distances,
+)
 
 __all__ = [
     "get_first_mentioned_user",
@@ -134,6 +140,7 @@ __all__ = [
     "get_group_member_info",
     "get_group_member_list",
     "get_stranger_info",
+    "SyncToAsyncIter",
 
     "EnterType",
     "PersonaInfo",
@@ -189,9 +196,12 @@ __all__ = [
     "nogive",
     "is_no_give",
     "is_no_give_type",
-
     
     "GroupMemberInfo",
     "BusinessCard",
     "CustomStatus",
+
+    "Ratios",
+    "FuzzyMatch",
+    "Distances",
 ]
