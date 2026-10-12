@@ -29,3 +29,5 @@
 | `similar`                  | `sml`    | `Similar`                 | 4.9.7.0        | 相似度判断                     | 第一行为相似度，比较第二行与第三行，并执行标签 | 当高于阈值时，执行 `similar:` 标签，否则执行 `dissimilar:` 标签 |
 | `textTrigger`              | `tt`     | `TextTrigger`             | 4.9.10.2       | 文本触发器                     | 第一行为正则表达式，后面一行一个命令          | 监控自己的消息输入，当匹配正则表达式时，顺序执行后面的命令，并将 `{message}` 替换为接受到的文本 |
 | `horizontalTree`           | `ht`     | `HorizontalTree`          | 4.9.10.2       | 横向调用树                     | 任务 ID (可选)                              | 输出树结构，当不输入任何参数时，逆向查找根并输出整棵调用树 |
+| `asynchronously`           | `async`  | `Asynchronously`          | 4.10.0.0       | 异步执行                       | 与 `bypass` 相同                            | 与 `bypass` 命令相同，但会返回任务 ID，可以用于其他操作 |
+| `wait`                     | `wt`     | `Wait`                    | 4.10.0.0       | 等待任务结束                   | 任务 ID                                    | 等待任务结束，并透传返回值 |
