@@ -17,6 +17,7 @@ from ..assist_func import (
     text_length_score,
     send_group_file,
     send_private_file,
+    is_empty_message,
 )
 from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
@@ -46,7 +47,7 @@ from ...exceptions import (
 )
 from ...logger import logger as base_logger
 from .sending_target import SendingTarget
-from .text_tender_exceptions import (
+from .text_render_exceptions import (
     InvalidResponseData,
     RenderResponseException,
     NotInitializedResponse,
@@ -222,7 +223,7 @@ class SendMsg:
         ):
         self._component: str = component
         self._persona_info: PersonaInfo = persona_info
-        self._reply: MessageSegment = reply or self._persona_info.reply
+        self._reply: MessageSegment | None = reply
         self._prefix: Message = prefix or Message()
         self._suffix: Message = suffix or Message()
         self._chat_tts_api = ChatTTSAPI()
@@ -442,6 +443,55 @@ class SendMsg:
             case SendingTarget.MATCHER:
                 if self._matcher is None:
                     raise ValueError("Matcher can't be a target, because it's not given.")
+
+    @property
+    def reply(self) -> MessageSegment | None:
+        """
+        当前消息的回复内容
+        """
+        return self._reply
+
+    @property
+    def prefix(self) -> Message:
+        """
+        当前消息的回复前缀
+        """
+        return self._prefix.copy()
+
+    @property
+    def suffix(self) -> Message:
+        """
+        当前消息的回复后缀
+        """
+        return self._suffix.copy()
+
+    @property
+    def target_group(self) -> str | None:
+        """
+        当前消息的目标群号
+        """
+        return self._target_group
+
+    @property
+    def target_user(self) -> str | None:
+        """
+        当前消息的目标用户号
+        """
+        return self._target_user
+
+    @property
+    def send_hook(self) -> SEND_HOOK | None:
+        """
+        当前的发送钩子
+        """
+        return self._send_hook
+
+    @property
+    def render_hook(self) -> RENDER_HOOK | None:
+        """
+        当前的渲染钩子
+        """
+        return self._render_hook
     
     @property
     def buffer(self) -> asyncio.Queue[SendingBufferUnit]:
@@ -1204,7 +1254,7 @@ class SendMsg:
             document_bottom_comment: str = "",
             style: str | None = None,
             html_template: str | None = None,
-            reply: bool = False,
+            reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[False] = False
         ) -> NoReturn: ...
@@ -1217,7 +1267,7 @@ class SendMsg:
             document_bottom_comment: str = "",
             style: str | None = None,
             html_template: str | None = None,
-            reply: bool = False,
+            reply: bool = True,
             break_code: int = 0,
             continue_handler: Literal[True] = True
         ) -> None: ...
@@ -1326,6 +1376,7 @@ class SendMsg:
         )
         image = await self.render_text_to_msg_segment(
             text,
+            title = title,
             document_bottom_comment = document_bottom_comment,
             style = style,
             html_template = html_template
@@ -1535,7 +1586,7 @@ class SendMsg:
                         message = f"[Error Info Is Invalid]"
                     texts.append(message)
                 else:
-                    texts.append(f"HTTP Code: {error.code}{HTTPCode(error.code).message})\nException Message: {error.text}")
+                    texts.append(f"HTTP Code: {error.code}({HTTPCode(error.code).message})\nException Message: {error.text}")
 
         text = "\n".join(texts)
         length_score = self.text_length_score(text)
@@ -1682,7 +1733,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1697,7 +1748,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1711,7 +1762,7 @@ class SendMsg:
             code_block: bool = False,
             threshold: float | None = None,
             title: str | None = None,
-            document_bottom_comments: str | None = None,
+            document_bottom_comment: str | None = None,
             style: str | None = None,
             html_template: str | None = None,
             reply: bool = True,
@@ -1750,7 +1801,7 @@ class SendMsg:
             await self.send_mixed_render(
                 f"```\n{text}\n```" if code_block else text,
                 title = title,
-                document_bottom_comment = document_bottom_comments,
+                document_bottom_comment = document_bottom_comment,
                 style = style,
                 html_template = html_template,
                 reply = reply,
@@ -2004,7 +2055,7 @@ class SendMsg:
     @staticmethod
     def handler_finished() -> NoReturn:
         """
-        跳出当前处理函数
+        关闭整个处理流程树
 
         :raise: FinishedException
         """
@@ -2224,34 +2275,36 @@ class SendMsg:
         :param reply: 是否携带引用
         :param continue_handler: 是否继续运行当前处理流程
         """
-        send_msg = self._prefix + message + self._suffix
+        if not is_empty_message(message):
+            send_msg = self._prefix + message + self._suffix
 
-        if self._persona_info.enter_type != EnterType.External and reply:
-            send_msg = self._reply + send_msg
+            if reply:
+                if self._reply is not None:
+                    send_msg = self._reply + send_msg
 
-        if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
-            hook_result = await self._send_hook(
-                target = self._sending_target,
-                message = send_msg,
-            )
-            if hook_result is False:
-                if not continue_handler:
-                    self.break_handler(break_code)
-                return
-        
-        try:
-            await self._send_to_target(
-                message = send_msg,
-                reply = reply,
-                break_code = break_code,
-                continue_handler = continue_handler
-            )
-        except Exception as error:
-            logger.error(
-                "Message Send Failed: \n{error}",
-                error = error
-            )
-            raise
+            if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
+                hook_result = await self._send_hook(
+                    target = self._sending_target,
+                    message = send_msg,
+                )
+                if hook_result is False:
+                    if not continue_handler:
+                        self.break_handler(break_code)
+                    return
+            
+            try:
+                await self._send_to_target(
+                    message = send_msg,
+                    reply = reply,
+                    break_code = break_code,
+                    continue_handler = continue_handler
+                )
+            except Exception as error:
+                logger.error(
+                    "Message Send Failed: \n{error}",
+                    error = error
+                )
+                raise
 
         if not continue_handler:
             self.break_handler(break_code)
@@ -2492,7 +2545,6 @@ class SendMsg:
                 file_name = file_name
             ),
         )
-
         if self._send_hook is not None:
             await self._send_hook(
                 target = SendingTarget.API,

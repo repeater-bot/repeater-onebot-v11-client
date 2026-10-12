@@ -77,7 +77,7 @@ class Response(Generic[T_Response]):
         return None
     
     def get_error(self) -> ErrorResponse | None:
-        if self.code != 200:
+        if self.code >= 400:
             try:
                 return ErrorResponse(**self.json())
             except Exception:

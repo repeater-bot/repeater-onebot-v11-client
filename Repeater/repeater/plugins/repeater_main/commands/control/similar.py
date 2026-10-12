@@ -5,7 +5,7 @@ from ...command_register import(
     CommandPackage
 )
 from .serial import Serial
-from ...clients import SimilarityClient
+from ...clients import EmbedingsClient
 
 @CommandCaller.register
 class Similar(CommandPackage):
@@ -81,7 +81,7 @@ class Similar(CommandPackage):
                 "Threshold must be a float number"
             )
         configs = await persona_info.get_user_configs()
-        client = SimilarityClient(persona_info, configs)
+        client = EmbedingsClient(persona_info, configs)
         response = await client.similarity(
             messages[1],
             messages[2],

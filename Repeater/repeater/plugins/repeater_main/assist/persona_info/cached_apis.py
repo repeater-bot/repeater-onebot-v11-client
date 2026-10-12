@@ -14,7 +14,7 @@ class CachedAPI(Bot):
     装饰过的 OneBot v11 Bot 对象
     会缓存 API 的返回值以减少调用次数
     """
-    cache: ClassVar[TTLCache[tuple[str, frozenset], Any, float]] = TTLCache( # type: ignore
+    cache: ClassVar[TTLCache[tuple[str, str, frozenset], Any, float]] = TTLCache( # type: ignore
         maxsize = storage_configs.platform_interface.cache_size,
         ttl = storage_configs.platform_interface.cache_timeout
     )
@@ -23,11 +23,17 @@ class CachedAPI(Bot):
     @wraps(Bot.call_api)
     async def call_api(self, api: str, **data: Any) -> Any:
         if storage_configs.platform_interface.cache:
+            cacheable: bool = False
             try:
-                key: tuple[str, frozenset] = (api, frozenset(data.items()))
+                key: tuple[str, str, frozenset] = (self.self_id, api, frozenset(data.items()))
                 cacheable: bool = True
-            except TypeError:
-                cacheable = False
+            except TypeError as e:
+                logger.warning(
+                    "{api} is not cacheable: {e}",
+                    api = str(api),
+                    e = str(e)
+                )
+                pass
             
             async with self.cache_lock:
                 if cacheable:

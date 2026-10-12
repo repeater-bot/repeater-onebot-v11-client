@@ -99,9 +99,13 @@
     "server_api_timeout": {
 
         // 聊天 API 超时
-        "chat": 600.0,
+        "chat": 4800.0,
 
+        // 图片 API 超时
         "image": 2400.0,
+
+        // 嵌入向量 API 超时
+        "embeding": 600.0,
 
         // 上下文操作 API 超时
         "context": 10.0,
@@ -318,6 +322,18 @@
     
         // 接口缓存超时时间
         "cache_timeout": 60
+    },
+
+    // Chat 类型命令的输出控制
+    // 可选值：
+    // image: 以 Markdown 形式输出该片段内容
+    // text: 以纯文本形式输出该片段内容
+    // auto: 自动选择
+    // null: 不输出该片段内容
+    "chat_output": {
+        "reasoning_content": "image",
+        "tool_content": "image",
+        "content": "auto",
     },
 
     // 生成图片所参考的文件的解析类型

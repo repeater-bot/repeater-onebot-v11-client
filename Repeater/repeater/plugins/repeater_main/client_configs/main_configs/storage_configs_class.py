@@ -2,7 +2,7 @@ import secrets
 from pydantic import BaseModel, Field
 
 from .camouflage import Camouflage
-from .text_length_score_configs import TextLengthScoreConfigs
+from .text_length_score import TextLengthScoreConfigs
 from .server_api_timeout import ServerAPITimeout
 from ..useless_button_words_list import useless_button_words
 from .behavioral_act import BehavioralACT
@@ -11,10 +11,11 @@ from .platform_interface import PlatformInterface
 from .loading import LoadingConfigs
 from .generate_image_file_type import GenerateImageFileType
 from .render_error_message import RenderErrorMessage
-from .cilent_limits import ClientLimits
+from .client_limits import ClientLimits
 from .ignore_enter import IgnoreEnter
 from .permission_rule import PermissionRule
 from .external_trigger_server import ExternalTriggerServer
+from .chat_output import ChatOutput
 
 class StorageConfigs(BaseModel):
     text_length_score_configs: TextLengthScoreConfigs = Field(default_factory = TextLengthScoreConfigs)
@@ -38,6 +39,7 @@ class StorageConfigs(BaseModel):
     zone_sender_need_permission: bool = True
     summarize_and_contract_default_message: str = "System Message: please sum up all the contents above."
     ciallo_content: str = "Ciallo~ (∠・ω< )⌒★"
+    chat_output: ChatOutput = Field(default_factory = ChatOutput)
     branch_file_size_use_abbreviation: bool = True
     hash_namespace_salt: str = Field(default_factory = lambda: secrets.token_urlsafe(64))
     hash_namespace_iterations: int = 0

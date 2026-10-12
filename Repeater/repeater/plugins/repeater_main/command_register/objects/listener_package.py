@@ -94,10 +94,10 @@ class ListenerPackage(Awaitable[PersonaInfo]):
         If the future is already done when this method is called, raises InvalidStateError.
         """
         if set_sponsor:
-            result.copy(task_id = self.sponsor)
-            self.future.set_result(result)
+            copyed_info = result.copy(task_id = self.sponsor)
+            self.future.set_result(copyed_info)
         else:
-            self.future.set_result(result)
+            self.future.set_result(result.copy())
     
     def set_exception(self, exception: type | BaseException, /) -> None:
         """
@@ -118,9 +118,3 @@ class ListenerPackage(Awaitable[PersonaInfo]):
         Return an iterator to be used in await expression.
         """
         return self.future.__await__()
-
-    def __class_getitem__(cls, item: type[PersonaInfo]) -> GenericAlias:
-        """
-        See PEP 585
-        """
-        return cls.future.__class_getitem__(item)

@@ -30,13 +30,15 @@ class AllowTools(BaseConfig):
         raw_value: list[str] | None = None
     ):
         if raw_value is None:
-            tools = []
+            tools = set()
         else:
-            tools = raw_value
+            tools = set(raw_value)
         msg = persona_info.message_stripped_str
         add_tools = parse_delimited_string(msg)
-        tools.extend(add_tools)
-        return tools
+        for tool in add_tools:
+            if tool not in tools:
+                tools.add(tool)
+        return list(tools)
     
     async def finish_message(
             self,

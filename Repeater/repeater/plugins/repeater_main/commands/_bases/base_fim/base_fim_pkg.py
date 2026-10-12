@@ -81,15 +81,7 @@ class BaseFIM(BaseChat):
                     buffer.append(message.suffix)
                 return "".join(buffer)
         
-        chat_send_msg = ChatSendMsg(
-            component = send_msg.component,
-            persona_info = persona_info,
-            matcher = send_msg.matcher,
-            response = response,
-            reasoning_content_handler = self.reason_filters,
-            content_handler = filters,
-            strip = False
-        )
+        chat_send_msg = self.make_send_msg(send_msg, response)
         await self.send_chat_send_msg(chat_send_msg)
     
     async def send_message(

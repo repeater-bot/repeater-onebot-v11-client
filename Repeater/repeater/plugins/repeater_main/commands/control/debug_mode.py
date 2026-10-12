@@ -1,11 +1,10 @@
-import re
-
 from ...assist import PersonaInfo, SendMsg
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
     CommandPackage
 )
+from ._peel_command import peel_command
 
 @CommandCaller.register
 class DebugMode(CommandPackage):
@@ -28,20 +27,10 @@ class DebugMode(CommandPackage):
         ```
     """
 
-    pattern = re.compile(r"^(?P<components_or_trigger>[/\w_\.]+)\s*(?P<args>.*)$", re.IGNORECASE | re.DOTALL | re.UNICODE)
-
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-        msg = str(persona_info.message)
-        
-        matched = self.pattern.match(msg)
-        if matched:
-            components_or_trigger = matched.group("components_or_trigger")
-            args_prefix = matched.group("args")
-
-            assert isinstance(components_or_trigger, str), "components must be str"
-            assert isinstance(args_prefix, str), "args_prefix must be str"
-
-            args = persona_info.make_message(args_prefix)
+        peeled = peel_command(persona_info.message)
+        if peeled is not None:
+            components_or_trigger, args = peeled
 
             try:
                 package = CommandCaller.match_trigger_or_component(components_or_trigger)

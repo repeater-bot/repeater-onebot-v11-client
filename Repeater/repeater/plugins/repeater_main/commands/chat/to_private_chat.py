@@ -1,4 +1,3 @@
-import re
 from .._bases import BaseChat
 from ...assist import PersonaInfo
 from ...clients import ChatClient

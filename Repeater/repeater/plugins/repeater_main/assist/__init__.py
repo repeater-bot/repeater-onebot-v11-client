@@ -1,5 +1,4 @@
 from .assist_func import (
-    at_with_name,
     get_first_mentioned_user,
     image_to_text,
     get_reply_msgs,
@@ -25,6 +24,11 @@ from .assist_func import (
     make_message_event,
     get_private_message_history,
     get_group_message_history,
+    is_empty_message,
+    is_empty_message,
+    get_group_member_info,
+    get_group_member_list,
+    get_stranger_info,
 )
 from .persona_info import (
     EnterType,
@@ -67,7 +71,8 @@ from .network import (
 )
 from .user_config import (
     UserConfigs,
-    UserConfigLoader
+    UserConfigLoader,
+    ChatOutput
 )
 from .base_client import (
     BaseClient,
@@ -93,9 +98,13 @@ from .special_values import (
     is_no_give,
     is_no_give_type,
 )
+from .models import (
+    GroupMemberInfo,
+    BusinessCard,
+    CustomStatus,
+)
 
 __all__ = [
-    "at_with_name",
     "get_first_mentioned_user",
     "image_to_text",
     "get_reply_msgs",
@@ -121,6 +130,10 @@ __all__ = [
     "make_message_event",
     "get_private_message_history",
     "get_group_message_history",
+    "is_empty_message",
+    "get_group_member_info",
+    "get_group_member_list",
+    "get_stranger_info",
 
     "EnterType",
     "PersonaInfo",
@@ -156,6 +169,7 @@ __all__ = [
 
     "UserConfigs",
     "UserConfigLoader",
+    "ChatOutput",
 
     "BaseClient",
     "ClientPool",
@@ -175,4 +189,9 @@ __all__ = [
     "nogive",
     "is_no_give",
     "is_no_give_type",
+
+    
+    "GroupMemberInfo",
+    "BusinessCard",
+    "CustomStatus",
 ]

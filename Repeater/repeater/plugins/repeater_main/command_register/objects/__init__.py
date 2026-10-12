@@ -4,10 +4,13 @@ from .running_package import RunningPackage
 from .sub_cmd_exit import (
     SubCmdExit,
     SubCmdBreaked,
-    SubCmdCacelled,
+    SubCmdCancelled,
     SubCmdTimeout,
 )
 from .listener_package import ListenerPackage
+from .letters_package import LettersPackage
+from .pipe_package import PipePackage
+from .status_package import StatusPackage
 
 __all__ = [
     "ListenType",
@@ -15,7 +18,10 @@ __all__ = [
     "RunningPackage",
     "SubCmdExit",
     "SubCmdBreaked",
-    "SubCmdCacelled",
+    "SubCmdCancelled",
     "ListenerPackage",
     "SubCmdTimeout",
+    "LettersPackage",
+    "PipePackage",
+    "StatusPackage",
 ]

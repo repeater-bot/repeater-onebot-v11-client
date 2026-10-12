@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import copy
 import uuid
 
@@ -22,7 +23,6 @@ from typing import (
     Callable
 )
 from ..assist_func import (
-    at_with_name,
     image_to_text,
     get_reply_msgs,
     get_forward_msgs,
@@ -32,6 +32,14 @@ from ..assist_func import (
     make_empty_message_event,
     get_private_message_history,
     get_group_message_history,
+    is_empty_message,
+    get_group_member_info,
+    get_group_member_list,
+    get_stranger_info,
+)
+from ..models import (
+    GroupMemberInfo,
+    BusinessCard
 )
 from ..namespace import MessageSource, Namespace
 from .enter_type import EnterType
@@ -109,7 +117,6 @@ class PersonaInfo:
         self._group_name: str | None = None
         self._source = MessageSource(event.message_type.strip().lower())
         self._enter_type: EnterType = enter_type
-        self._raw_message_event: MessageEvent | None = None
         self._self_id: str = bot.self_id
 
         if self._source == MessageSource.GROUP:
@@ -369,7 +376,7 @@ class PersonaInfo:
 
     async def from_message_history(
             self,
-            score: MessageSource,
+            source: MessageSource,
             id: str | int = "",
             message_id: int = 0,
             count: int = 20,
@@ -380,7 +387,7 @@ class PersonaInfo:
         """
         从消息历史构建 PersonaInfo 实例
 
-        :param score: 消息来源
+        :param source: 消息来源
         :param id: 群组 ID
         :param message_id: 消息 ID
         :param count: 数量
@@ -388,7 +395,7 @@ class PersonaInfo:
         :param copydata: 是否复制数据
         :param deepcopy: 是否深拷贝数据
         """
-        match score:
+        match source:
             case MessageSource.GROUP:
                 messages = await get_group_message_history(
                     bot = self.cached_api,
@@ -452,13 +459,7 @@ class PersonaInfo:
         """
         判断消息是否为空
         """
-        for message in self.message:
-            if message.type == "text":
-                if message.data["text"]:
-                    return True
-            elif message.type not in ["at", "reply"]:
-                return True
-        return False
+        return not is_empty_message(self.message)
 
     @property
     def task_id(self) -> uuid.UUID:
@@ -487,6 +488,20 @@ class PersonaInfo:
         当前发起请求的用户是否为自身
         """
         return self.user_id == self.self_id
+
+    @property
+    def is_group(self) -> bool:
+        """
+        当前消息是否为群聊消息
+        """
+        return self.source == MessageSource.GROUP
+
+    @property
+    def is_private(self) -> bool:
+        """
+        当前消息是否为私聊消息
+        """
+        return self.source == MessageSource.PRIVATE
     
     @property
     def self_id(self) -> str:
@@ -709,6 +724,36 @@ class PersonaInfo:
         设置用户配置
         """
         await self._user_config_loader.save(configs)
+
+    async def get_group_member_info(self, group_id: str, user_id: str, no_cache: bool = False) -> GroupMemberInfo:
+        """
+        获取群成员信息
+        """
+        return await get_group_member_info(
+            bot = self.cached_api,
+            group_id = int(group_id),
+            user_id = int(user_id),
+            no_cache = no_cache
+        )
+
+    async def get_group_member_list(self, group_id: str) -> list[GroupMemberInfo]:
+        """
+        获取群成员列表
+        """
+        return await get_group_member_list(
+            bot = self.cached_api,
+            group_id = int(group_id)
+        )
+
+    async def get_stranger_info(self, user_id: str, no_cache: bool = False) -> BusinessCard:
+        """
+        获取陌生人信息
+        """
+        return await get_stranger_info(
+            bot = self.cached_api,
+            user_id = int(user_id),
+            no_cache = no_cache
+        )
     
     @property
     def event_message(self) -> Message:
@@ -760,8 +805,16 @@ class PersonaInfo:
         """
         return self.message_str.strip()
     
+    def match_message(self, pattern: re.Pattern) -> re.Match[str] | None:
+        """
+        匹配消息字符串
+
+        :param pattern: 正则表达式
+        """
+        return pattern.match(self.message_stripped_str)
+    
     @property
-    def event_message_striped_str(self) -> str:
+    def event_message_stripped_str(self) -> str:
         """
         消息事件字符串（去除首尾空格）
         """
@@ -837,12 +890,6 @@ class PersonaInfo:
             if segment.type == "at":
                 at_list.append(segment.data["qq"])
         return at_list
-    
-    async def handle_at_with_name(self) -> Message:
-        """
-        处理@消息，将@的 user_id 替换为昵称
-        """
-        return await at_with_name(self._cached_api, self._message_event)
     
     async def image_to_text(self, format: str = "{text}", cite: bool = True, excluded_tags:Container[str] = {}) -> Message:
         """

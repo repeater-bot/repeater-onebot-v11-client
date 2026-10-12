@@ -1,5 +1,3 @@
-import json
-import httpx
 from typing import (
     ClassVar,
     Iterable
@@ -8,12 +6,10 @@ from typing import (
 from .client_pool import (
     ClientPool,
     ClientInfo,
-    ClientTimeout,
-    ClientLimits
+    ClientTimeout
 )
 from ...client_configs import (
-    storage_configs,
-    ClientLimits as StorageClientLimits
+    storage_configs
 )
 from urllib.parse import urljoin, quote
 from ..namespace import Namespace
@@ -27,7 +23,12 @@ class BaseClient:
     timeout: ClassVar[int | float | ClientTimeout | None] = 5
     encoding: ClassVar[str] = "utf-8"
 
-    def __init__(self, persona_info: PersonaInfo, user_configs: UserConfigs, namespace: str | Namespace | None = None):
+    def __init__(
+            self,
+            persona_info: PersonaInfo,
+            user_configs: UserConfigs,
+            namespace: str | Namespace | None = None
+        ):
         self._persona_info = persona_info
         self.user_configs = user_configs
         self._namespace = namespace
@@ -53,9 +54,9 @@ class BaseClient:
     def base_url(self) -> str:
         backend_url = self.backend_url
         if self.base_router is None:
-            url = urljoin(backend_url, self.base_router)
-        else:
             url = backend_url
+        else:
+            url = urljoin(backend_url, self.base_router)
         return url
     
     def join_url(
@@ -80,9 +81,38 @@ class BaseClient:
                 errors = errors
             )
         )
+
+    
+    def join_url_static(
+        self,
+        *urls: str,
+        base_url: str | None = None,
+        escape: bool = True,
+        add_slashes: bool = True,
+        follow_slashes: bool = False,
+        safe: str | Iterable[int] = "/",
+        encoding: str | None = None,
+        errors: str | None = None
+    ) -> str:
+        other_url = self._join_url_static(
+            *urls,
+            add_slashes = add_slashes,
+            follow_slashes = follow_slashes,
+            escape = escape,
+            safe = safe,
+            encoding = encoding,
+            errors = errors
+        )
+        if base_url is not None:
+            return urljoin(
+                base_url,
+                other_url
+            )
+        else:
+            return other_url
     
     @staticmethod
-    def join_url_static(
+    def _join_url_static(
         *urls: str,
         escape: bool = True,
         add_slashes: bool = True,

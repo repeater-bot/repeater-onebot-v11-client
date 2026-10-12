@@ -31,4 +31,4 @@ def str_to_bool(s: str, optional: bool = False) -> bool | None:
     elif s.lower() in ["false", "no", "0", "f", "n", "off"]:
         return False
     else:
-        raise ValueError("Cannot convert string to boolean.")
+        raise ValueError(f"\"{s}\" cannot convert string to boolean.")

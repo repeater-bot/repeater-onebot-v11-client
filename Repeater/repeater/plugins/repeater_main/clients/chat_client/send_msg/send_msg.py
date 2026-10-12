@@ -2,12 +2,15 @@ import asyncio
 
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.internal.matcher.matcher import Matcher
-from typing import NoReturn, Type, Callable
+from typing import NoReturn, Type, Callable, overload, Literal
 
 from ....assist import (
     PersonaInfo,
     Response,
     SendMsg,
+    SendingTarget,
+    SEND_HOOK,
+    RENDER_HOOK,
     ChatTTSAPI,
     ErrorResponse,
     text_content_cutter,
@@ -15,7 +18,8 @@ from ....assist import (
 from ..response_body import ChatResponse
 from ...content_role import ContentRole
 from ....logger import logger as base_logger
-from ....client_configs import storage_configs
+from ....client_configs import storage_configs, ChatOutputMode
+from typing_extensions import deprecated
 
 logger = base_logger.bind(module = "Chat.SendMsg")
 
@@ -29,11 +33,29 @@ class ChatSendMsg(SendMsg):
             reasoning_content_handler: Callable[[str], str] = lambda t: t,
             content_handler: Callable[[str], str] = lambda t: t,
             strip: bool = True,
+
+            reply: MessageSegment | None = None,
+            prefix: Message | None = None,
+            suffix: Message | None = None,
+            target_group: str | None = None,
+            target_user: str | None = None,
+            send_target: SendingTarget = SendingTarget.AUTO,
+            send_hook: SEND_HOOK | None = None,
+            render_hook: RENDER_HOOK | None = None,
         ):
         super().__init__(
             component = component,
             persona_info = persona_info,
             matcher = matcher,
+
+            reply = reply,
+            prefix = prefix,
+            suffix = suffix,
+            target_group = target_group,
+            target_user = target_user,
+            send_target = send_target,
+            send_hook = send_hook,
+            render_hook = render_hook,
         )
         self._response: Response[ChatResponse] = response
         self._chat_tts_api = ChatTTSAPI()
@@ -109,182 +131,358 @@ class ChatSendMsg(SendMsg):
             merged_content = merged_content.strip()
         return self._content_handler(merged_content)
     
-    async def _check_response(self) -> None | NoReturn:
+    async def check_response(
+        self,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False
+    ) -> None | NoReturn:
         if self.is_debug_mode:
-            await self.send_debug_mode()
+            await self.send_debug_mode(
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
         
-        if self._response.code != 200 and self._error is not None:
-            await self.send_error_response(self._error)
+        elif self._response.code != 200 and self._error is not None:
+            await self.send_error_response(
+                self._error,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
         
-        if self._response.exception_info and self._response.exception_info.exc_value is not None:
-            await self.send_error(self._response.exception_info.exc_value)
+        elif self._response.exception_info and self._response.exception_info.exc_value is not None:
+            await self.send_error(
+                self._response.exception_info.exc_value,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
     
     def _get_response_usage(self) -> str:
         if self._data is None:
             return ""
         return self._data.request_statistics
+
+    @overload
+    async def send(
+            self,
+            text: str | None = None,
+            output_reasoning_content_mode: ChatOutputMode | None = None,
+            output_tool_call_mode: ChatOutputMode | None = None,
+            output_content_mode: ChatOutputMode | None = None,
+        
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
+
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    async def send(
+            self,
+            text: str | None = None,
+            output_reasoning_content_mode: ChatOutputMode | None = None,
+            output_tool_call_mode: ChatOutputMode | None = None,
+            output_content_mode: ChatOutputMode | None = None,
+        
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
+
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
     
-    async def send(self) -> NoReturn:
-        await self._check_response()
+    async def send(
+            self,
+            text: str | None = None,
+            output_reasoning_content_mode: ChatOutputMode | None = None,
+            output_tool_call_mode: ChatOutputMode | None = None,
+            output_content_mode: ChatOutputMode | None = None,
+        
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None,
+
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
+        """
+        Parse Chat Response and send it.
+
+        :param text: The text to send.
+        :param output_reasoning_content_mode: The mode to output reasoning content.
+        :param output_tool_call_mode: The mode to output tool call content.
+        :param output_content_mode: The mode to output content.
+        :param title: The title of the document.
+        :param document_bottom_comment: The bottom comment of the document.
+        :param style: The style of the document.
+        :param html_template: The html template of the document.
+        :param reply: Whether to reply to the message.
+        :param break_code: The break code of the message.
+        :param continue_handler: Whether to continue the handler.
+        """
+
+        await self.check_response(
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
+        user_configs = await self.persona_info.get_user_configs()
+        chat_output = user_configs.chat_output
 
         content = self.content
         if content is None:
-            self.handler_finished()
+            if continue_handler:
+                return
+            else:
+                self.break_handler()
+            
+        output_reasoning_content_final_mode = (
+            output_reasoning_content_mode or
+            chat_output.reasoning_content or
+            storage_configs.chat_output.reasoning_content
+        )
+        
+        output_tool_call_final_mode = (
+            output_tool_call_mode or
+            chat_output.tool_content or
+            storage_configs.chat_output.tool_content
+        )
 
-        score = self.text_length_score(content)
-        threshold = self.text_length_score_threshold
-        logger.info(f"Response content score: {score}")
-        if score >= threshold:
-            logger.warning(f"Response content score to high: {score}, Expected to be below {threshold} ")
-            logger.warning("The text will be rendered as an image output.")
-            await self.send_image_mode()
-        else:
-            await self.send_text_mode()
-    
-    async def send_tts_mode(self, text: str | None = None) -> NoReturn:
-        await self._check_response()
+        output_content_final_mode = (
+            output_content_mode or
+            chat_output.content or
+            storage_configs.chat_output.content
+        )
+
+        logger.info(
+            "Chat Output Mode: {reasoning}/{tool}/{content}",
+            reasoning = output_reasoning_content_mode,
+            tool = output_tool_call_mode,
+            content = output_content_mode
+        )
+
+        message = await self.parse_response(
+            text = text or content,
+
+            output_reasoning_content_mode = output_reasoning_content_final_mode,
+            output_tool_call_mode = output_tool_call_final_mode,
+            output_content_mode = output_content_final_mode,
+
+            title = title,
+            document_bottom_comment = document_bottom_comment,
+            style = style,
+            html_template = html_template
+        )
+
+        await self._send(
+            message,
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
+
+    @overload
+    @deprecated("Compatible reserved, ready to be deprecated interface.")
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[False] = False
+        ) -> NoReturn: ...
+
+    @overload
+    @deprecated("Compatible reserved, ready to be deprecated interface.")
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: Literal[True] = True
+        ) -> None: ...
+
+    @deprecated("Compatible reserved, ready to be deprecated interface.")
+    async def send_tts_mode(
+            self,
+            text: str | None = None,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ) -> None:
+        await self.check_response(
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
+        )
 
         if self.reasoning_content:
             await self.send_render(
                 self.reasoning_content,
-                reply = True,
-                continue_handler = True
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
             )
         if self.content:
             await self.send_tts(
                 text or self.content,
-                reply = False,
-                continue_handler = False
+                reply=reply,
+                break_code=break_code,
+                continue_handler=continue_handler
             )
-        
-        # This line is not necessary
-        self.handler_finished()
 
     @staticmethod
-    async def _content_to_text(msg: str, prefix: str = "", suffix: str = "\n\n---\n\n") -> MessageSegment:
-        if msg:
-            return MessageSegment.text(
-                f"{prefix}{msg}{suffix}"
-            )
+    async def _content_to_text(
+        msg: str,
+    ) -> MessageSegment:
+        return MessageSegment.text(text=msg)
+
+    async def _spread_out_mode(
+        self,
+        output_mode: ChatOutputMode,
+        content: str
+    ) -> ChatOutputMode:
+        if output_mode == ChatOutputMode.AUTO:
+            tls = self.text_length_score(content)
+            if tls > self.text_length_score_threshold:
+                return ChatOutputMode.IMAGE
+            else:
+                return ChatOutputMode.TEXT
         else:
-            return MessageSegment.text("")
+            return output_mode
+
+    async def _parse_msg(
+        self,
+        output_mode: ChatOutputMode,
+        content: str,
+        
+        title: str | None = None,
+        document_bottom_comment: str | None = None,
+        style: str | None = None,
+        html_template: str | None = None,
+    ) -> list[asyncio.Task[MessageSegment]]:
+        tasks: list[asyncio.Task[MessageSegment]] = []
+        match output_mode:
+            case ChatOutputMode.IMAGE:
+                reasoning_render_task = asyncio.create_task(
+                    coro = self.render_text_to_msg_segment(
+                        message = content,
+                        title = title,
+                        document_bottom_comment = document_bottom_comment or self._get_response_usage(),
+                        style = style,
+                        html_template = html_template
+                    )
+                )
+                tasks.append(reasoning_render_task)
+            case ChatOutputMode.TEXT:
+                reasoning_text_task = asyncio.create_task(
+                    coro = self._content_to_text(
+                        msg = content
+                    )
+                )
+                tasks.append(reasoning_text_task)
+            case ChatOutputMode.AUTO:
+                if self.text_length_score(content) > self.text_length_score_threshold:
+                    reasoning_render_task = asyncio.create_task(
+                        coro = self.render_text_to_msg_segment(
+                            message = content,
+                            title = title,
+                            document_bottom_comment = document_bottom_comment or self._get_response_usage(),
+                            style = style,
+                            html_template = html_template
+                        )
+                    )
+                    tasks.append(reasoning_render_task)
+                else:
+                    reasoning_text_task = asyncio.create_task(
+                        coro = self._content_to_text(
+                            msg = content
+                        )
+                    )
+                    tasks.append(reasoning_text_task)
+            case ChatOutputMode.NULL:
+                pass
+        return tasks
     
-    async def send_text_mode(
+    async def parse_response(
             self,
             text: str | None = None,
-            reasoning_content_to_image: bool = True,
-            tool_response_to_image: bool = True
-        ) -> NoReturn:
-        await self._check_response()
+            output_reasoning_content_mode: ChatOutputMode = ChatOutputMode.IMAGE,
+            output_tool_call_mode: ChatOutputMode = ChatOutputMode.IMAGE,
+            output_content_mode: ChatOutputMode = ChatOutputMode.AUTO,
         
+            title: str | None = None,
+            document_bottom_comment: str | None = None,
+            style: str | None = None,
+            html_template: str | None = None
+        ) -> Message:
         tasks: list[asyncio.Task[MessageSegment]] = []
         reasoning_content = self.reasoning_content
         tools_content = self.tools_content
         content = self.content
 
         if reasoning_content:
-            if reasoning_content_to_image:
-                reasoning_render_task = asyncio.create_task(
-                    self.render_text_to_msg_segment(
-                        reasoning_content,
-                        document_bottom_comment = self._get_response_usage()
-                    )
+            tasks.extend(
+                await self._parse_msg(
+                    output_mode = output_reasoning_content_mode,
+                    content = reasoning_content,
+                    title = title,
+                    document_bottom_comment = document_bottom_comment,
+                    style = style,
+                    html_template = html_template
                 )
-                tasks.append(reasoning_render_task)
-            else:
-                tasks.append(
-                    asyncio.create_task(
-                        self._content_to_text(
-                            reasoning_content
-                        )
-                    )
-                )
+            )
         if tools_content:
-            if tool_response_to_image:
-                tool_response_render_task = asyncio.create_task(
-                    self.render_text_to_msg_segment(
-                        tools_content,
-                        document_bottom_comment = self._get_response_usage()
-                    )
+            tasks.extend(
+                await self._parse_msg(
+                    output_mode = output_tool_call_mode,
+                    content = tools_content,
+                    title = title,
+                    document_bottom_comment = document_bottom_comment,
+                    style = style,
+                    html_template = html_template
                 )
-                tasks.append(tool_response_render_task)
-            else:
-                tasks.append(
-                    asyncio.create_task(
-                        self._content_to_text(
-                            tools_content
-                        )
-                    )
-                )
+            )
         if content:
-            tasks.append(
-                asyncio.create_task(
-                    self._content_to_text(
-                        text or content,
-                        suffix = ""
-                    )
+            tasks.extend(
+                await self._parse_msg(
+                    output_mode = output_content_mode,
+                    content = text or content,
+                    title = title,
+                    document_bottom_comment = document_bottom_comment,
+                    style = style,
+                    html_template = html_template
                 )
             )
         else:
-            tasks.append(
-                asyncio.create_task(
-                    self.empty_message()
+            tasks.extend(
+                await self._parse_msg(
+                    output_mode = output_content_mode,
+                    content = "[No Content]",
+                    title = title,
+                    document_bottom_comment = document_bottom_comment,
+                    style = style,
+                    html_template = html_template
                 )
             )
 
         results = await asyncio.gather(*tasks)
-        message = Message(results)
+        message = Message()
+        for index, message_segment in enumerate(results):
+            message.append(message_segment)
+            if message_segment.type == "text" and index < len(results) - 1 and results[index + 1].type == "text":
+                message.append(MessageSegment.text("\n\n---\n\n"))
 
         message.reduce()
-        await self._send(message)
-
-        # This line is not necessary
-        self.handler_finished()
-    
-    async def send_image_mode(
-            self,
-            text: str | None = None
-        ) -> NoReturn:
-        await self._check_response()
-        tasks: list[asyncio.Task[MessageSegment]] = []
-
-        if self.reasoning_content:
-            reason_render_task = asyncio.create_task(
-                self.render_text_to_msg_segment(
-                    self.reasoning_content,
-                    document_bottom_comment = self._get_response_usage()
-                )
-            )
-            tasks.append(reason_render_task)
-        if self.tools_content:
-            tools_render_task = asyncio.create_task(
-                self.render_text_to_msg_segment(
-                    self.tools_content,
-                    document_bottom_comment = self._get_response_usage()
-                )
-            )
-            tasks.append(tools_render_task)
-        if self.content:
-            content_render_task = asyncio.create_task(
-                self.render_text_to_msg_segment(
-                    text or self.content,
-                    document_bottom_comment = self._get_response_usage()
-                )
-            )
-            tasks.append(content_render_task)
-        else:
-            tasks.append(
-                asyncio.create_task(
-                    self.empty_message()
-                )
-            )
-        
-        if tasks:
-            results = await asyncio.gather(*tasks)
-            message = Message(results)
-            await self._send(message)
-        else:
-            await self.send_error("Nothing can be sent.")
-        
-        # This line is not necessary
-        self.handler_finished()
+        return message

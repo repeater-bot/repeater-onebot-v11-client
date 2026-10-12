@@ -1,4 +1,4 @@
-from ...clients import ChatClient, ChatSendMsg
+from ...clients import ChatSendMsg
 from ...assist import PersonaInfo, SendMsg
 from ...logger import logger
 from ...command_register import CommandCaller
@@ -37,10 +37,5 @@ class ChatKeepReasoning(BaseChat):
             thinking=True,
         )
         
-        send_msg = ChatSendMsg(
-            send_msg.component,
-            persona_info,
-            response,
-            send_msg.matcher,
-        )
-        await self.send_chat_send_msg(send_msg)
+        chat_send_msg = self.make_send_msg(send_msg, response)
+        await self.send_chat_send_msg(chat_send_msg)
