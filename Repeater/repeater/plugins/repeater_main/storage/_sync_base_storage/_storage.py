@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import AsyncGenerator, AsyncIterable, Iterable, Generic, TypeVar
+from typing import AsyncGenerator, Generator, Iterable, Generic, TypeVar
 from abc import ABC, abstractmethod
 from cachetools import LRUCache
 from ...logger import logger
@@ -24,11 +24,14 @@ class SyncStorage(ABC, Generic[T_STORAGE_DATA]):
         """
         self.storage_base_path = Path(storage_base_path)
     
-    def path(self, path: str | os.PathLike):
-        path = Path(path)
-        if path.is_absolute():
-            return path
-        return self.storage_base_path / path
+    def path(self, path: str | os.PathLike | None = None):
+        if path is None:
+            return self.storage_base_path
+        else:
+            path = Path(path)
+            if path.is_absolute():
+                return path
+            return self.storage_base_path / path
     
     def load(self, path: str | os.PathLike) -> T_STORAGE_DATA:
         self._total_read_count += 1
@@ -92,3 +95,31 @@ class SyncStorage(ABC, Generic[T_STORAGE_DATA]):
             shutil.copy(src, dst)
         elif src.is_dir():
             shutil.copytree(src, dst)
+    
+    def exists(self, path: str | os.PathLike | None = None) -> bool:
+        path = self.path(path)
+        return path.exists()
+
+    def is_file(self, path: str | os.PathLike | None = None) -> bool:
+        path = self.path(path)
+        return path.is_file()
+
+    def is_dir(self, path: str | os.PathLike | None = None) -> bool:
+        path = self.path(path)
+        return path.is_dir()
+
+    def glob(self, glob: str, path: str | os.PathLike | None = None) -> list[Path]:
+        path = self.path(path)
+        return [f for f in path.glob(glob)]
+
+    def rglob(self, glob: str, path: str | os.PathLike | None = None) -> list[Path]:
+        path = self.path(path)
+        return [f.relative_to(self.storage_base_path) for f in path.rglob(glob)]
+
+    def list(self, path: str | os.PathLike | None = None) -> list[Path]:
+        path = self.path(path)
+        return [f for f in path.iterdir()]
+
+    def iterdir(self, path: str | os.PathLike | None = None) -> Generator[Path, None, None]:
+        path = self.path(path)
+        return path.iterdir()
