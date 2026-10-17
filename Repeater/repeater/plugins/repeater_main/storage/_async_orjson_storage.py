@@ -19,7 +19,7 @@ class OrjsonStorage(BinaryStorage):
     async def load_json(self, path: str | os.PathLike, default: T = None) -> Any | T:
         try:
             logger.info(f"Loading json from {path}")
-            return asyncio.to_thread(
+            return await asyncio.to_thread(
                 orjson.loads,
                 await self.load(path)
             )
