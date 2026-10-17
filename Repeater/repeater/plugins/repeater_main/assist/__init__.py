@@ -29,7 +29,8 @@ from .assist_func import (
     get_group_member_info,
     get_group_member_list,
     get_stranger_info,
-    SyncToAsyncIter
+    SyncToAsyncIter,
+    iter_message_history
 )
 from .persona_info import (
     EnterType,
@@ -141,6 +142,7 @@ __all__ = [
     "get_group_member_list",
     "get_stranger_info",
     "SyncToAsyncIter",
+    "iter_message_history",
 
     "EnterType",
     "PersonaInfo",

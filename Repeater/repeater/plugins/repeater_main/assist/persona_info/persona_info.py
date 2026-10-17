@@ -36,6 +36,7 @@ from ..assist_func import (
     get_group_member_info,
     get_group_member_list,
     get_stranger_info,
+    iter_message_history,
 )
 from ..models import (
     GroupMemberInfo,
@@ -447,6 +448,29 @@ class PersonaInfo:
             event = reply_event
         )
         return persona_info
+
+    async def from_iter_message_history(
+            self,
+            iter_step: int = 100,
+            copydata: bool = False,
+            deepcopy: bool = False
+        ) -> AsyncGenerator[PersonaInfo, None]:
+        """
+        从消息历史中迭代构建 PersonaInfo 实例
+
+        :param iter_step: 步进所获取迭代步数
+        :param copydata: 是否复制数据
+        :param deepcopy: 是否深复制数据
+        :return: PersonaInfo 实例
+        """
+        async for history in iter_message_history(self.cached_api, self.namespace, iter_step):
+            instance = self.copy(
+                event = history,
+                args = None,
+                copydata = copydata,
+                deepcopy = deepcopy
+            )
+            yield instance
     
     @property
     def enter_type(self) -> EnterType:
