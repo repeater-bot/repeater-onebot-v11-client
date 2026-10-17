@@ -10,4 +10,4 @@
 | `filterMessages`           | `fm`     | `FilterMessages`          | `PROTOCOL`  | 4.9.11.0       | 过滤消息                       | 格式：group/user:id message_id:count regex | 从历史消息中筛选关注的消息，当消息数量为负数时则表示向反方向查询，当消息 ID 不填或为 0 时，设为最新消息，此时反向查询将不可用 |
 | `filterMessagesNow`        | `fmn`    | `FilterMessagesNow`       | `PROTOCOL`  | 4.9.11.0       | 过滤当前环境的消息              | 格式：message_id:count regex               | 与上条功能一致，但环境使用当前环境 |
 | `businessCard`             | `bc`     | `BusinessCard`            | `PROTOCOL`  | 4.9.14.0       | 解析 QQ 用户的名片              | (可选) @群成员                             | 解析指定用户的名片，并返回结果 |
-| `listOfSpeakers`           | `los`    | `ListOfSpeakers`          | `PROTOCOL`  | 4.10.1.0       | 获取当天发言排行榜              | 无                                        | 获取当天发言排行榜 |
+| `listOfSpeakers`           | `los`    | `ListOfSpeakers`          | `PROTOCOL`  | 4.10.1.0       | 获取当天发言排行榜              | (可选) 回溯天数                            | 获取当天发言排行榜，填写回溯天数时返回从现在开始回溯指定天数的消息统计，不填则仅返回本天的统计 |
