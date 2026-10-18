@@ -41,5 +41,6 @@ class CmdTypes(Enum):
     STATISTIC = "STATISTIC"
     WATERMARK = "WATERMARK"
     GAMES = "GAMES"
+    CARDS = "CARDS"
     CLIENT_CONFIG = "CLIENT_CONFIG"
     OTHER = "OTHER"
