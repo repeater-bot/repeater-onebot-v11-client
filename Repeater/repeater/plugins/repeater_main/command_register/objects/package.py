@@ -121,7 +121,7 @@ class CommandPackage(ABC, Generic[T]):
     state: T_State | None = None
     """Default state"""
 
-    cmd_type: CmdTypes = CmdTypes.RESERVED
+    cmd_type: str | CmdTypes = CmdTypes.RESERVED
     """Command Type"""
 
     acceptable_sources: Collection[MessageSource] | None = None
@@ -145,7 +145,10 @@ class CommandPackage(ABC, Generic[T]):
     @property
     def component(self) -> str:
         """The human-readable name of the Handler (required) """
-        return f"Repeater.{self.cmd_type.value}.{self.__class__.__name__}"
+        if isinstance(self.cmd_type, CmdTypes):
+            return f"Repeater.{self.cmd_type.value}.{self.__class__.__name__}"
+        else:
+            return f"Repeater.{self.cmd_type}.{self.__class__.__name__}"
 
     @classmethod
     def package_path(cls) -> str:

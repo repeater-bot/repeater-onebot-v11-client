@@ -57,7 +57,7 @@ class CommandCaller:
     triggers: dict[str | tuple[str, ...], Type[CommandPackage[Any]]] = {}
     class_names: dict[str, Type[CommandPackage[Any]]] = {}
     classes: set[type[CommandPackage[Any]]] = set()
-    types: dict[CmdTypes, set[Type[CommandPackage[Any]]]] = {}
+    types: dict[str | CmdTypes, set[Type[CommandPackage[Any]]]] = {}
     matchers: dict[Type[CommandPackage[Any]], Type[Matcher]] = {}
     components: dict[str, Type[CommandPackage[Any]]] = {}
 
@@ -1589,7 +1589,7 @@ class CommandCaller:
                 )
     
     @classmethod
-    def _reg_cmd_types(cls, cmd_type: CmdTypes, package: Type[CommandPackage[T_Handler_Result]]) -> None:
+    def _reg_cmd_types(cls, cmd_type: str | CmdTypes, package: Type[CommandPackage[T_Handler_Result]]) -> None:
         """
         Register package to types pool
 
@@ -1624,7 +1624,10 @@ class CommandCaller:
         if total > 0:
             yield "Repeater:"
             for cmd_type, packages in cls.types.items():
-                yield f"  {cmd_type}({len(packages) / total:.2%})"
+                if isinstance(cmd_type, CmdTypes):
+                    yield f"  {cmd_type.value}({len(packages) / total:.2%})"
+                else:
+                    yield f"  {cmd_type}({len(packages) / total:.2%})"
                 for package in packages:
                     package_instance = cls.commands[package]
                     yield f"    {package_instance.component}"
