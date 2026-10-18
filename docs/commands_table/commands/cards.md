@@ -8,8 +8,8 @@
 
 | Command                    | Abridge  | Full Name     | Type        | Joined Version | Description            | Parameter Description                                   | Remarks |
 | :---                       | :---     | :---          | :---:       | :---           | :---                    | :---                                                    | :---    |
-| `FindCards`                | `FC`     | `FindCards`   | `CARDS`     | 4.10.2.0       | 按名称检索卡牌卡图        | 名称（留空则随机抽一张）                                   | 名称与卡图放在**同一条消息**里发出 |
-| `FindCards -a`             | `FC -a`  | `FindCards`   | `CARDS`     | 4.10.2.0       | 添加一张卡图             | `{"zh": "中文名", "en": "English"}` + 卡图               | `-a` / `-add` / `--add` 等价；卡图可随消息发送，或 60 秒内补发 |
+| `FindCards`                | `FC`     | `FindCards`   | `CARDS`     | 4.10.4.0       | 按名称检索卡牌卡图        | 名称（留空则随机抽一张）                                   | 名称与卡图放在**同一条消息**里发出 |
+| `FindCards -a`             | `FC -a`  | `FindCards`   | `CARDS`     | 4.10.4.0       | 添加一张卡图             | `{"zh": "中文名", "en": "English"}` + 卡图               | `-a` / `-add` / `--add` 等价；卡图可随消息发送，或 60 秒内补发 |
 
 别名：`FindCards` / `FC` / `fc` / `findcards` / `Findcards`。
 群聊触发遵循框架默认 `rule = to_me()`，即需要 @ 机器人。
