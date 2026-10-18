@@ -24,6 +24,7 @@
 - [SendMsg](./commands/send_msg.md)
 - [Protocol](./commands/protocol.md)
 - [Games](./commands/games.md)
+- [Cards](./commands/cards.md)
 - [Watermark](./commands/watermark.md)
 - [Other](./commands/other.md)
 
