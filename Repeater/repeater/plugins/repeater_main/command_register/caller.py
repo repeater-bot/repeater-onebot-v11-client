@@ -519,6 +519,7 @@ class CommandCaller:
     async def wait_message(
         cls,
         namespace: Namespace,
+        timeout: int | float | None = None,
         block_propagation: bool = False,
         listen_group: bool = False
     ) -> PersonaInfo:
@@ -526,12 +527,14 @@ class CommandCaller:
         Wait for the message.
 
         :param namespace: The target of listening.
+        :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
         """
         future = await cls.message_future(
             namespace = namespace,
+            timeout = timeout,
             block_propagation = block_propagation,
             listen_group = listen_group
         )
@@ -542,6 +545,7 @@ class CommandCaller:
     async def message_future(
         cls,
         namespace: Namespace,
+        timeout: int | float | None = None,
         block_propagation: bool = False,
         listen_group: bool = False
     ) -> ListenerPackage:
@@ -549,6 +553,7 @@ class CommandCaller:
         Create a Future to wait for the message.
 
         :param namespace: The target of listening.
+        :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: The `Future` object.
@@ -585,6 +590,48 @@ class CommandCaller:
             else:
                 cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
             cls.message_listener[listener_id] = listen_package
+
+        if timeout is not None:
+            async def timeout_handler():
+                try:
+                    await asyncio.wait_for(
+                        fut=asyncio.shield(
+                            arg=future
+                        ),
+                        timeout = timeout
+                    )
+                except asyncio.TimeoutError:
+                    async with cls.message_listener_lock:
+                        logger.info(
+                            "{handler}({task_id}) Timeout Wait {namespace} Message Task: {future}",
+                            handler = identity.component,
+                            task_id = source,
+                            namespace = namespace.namespace_str,
+                            future = repr(future),
+                        )
+                        # 只摘掉**自己**这一条：按 namespace / group_id 整键 pop，会把同一个
+                        # 群里别的监听者（例如旁听的长 Handler）一并抹掉，而它们的 Future
+                        # 还悬着 —— 那些 Handler 从此静默地再也收不到消息。
+                        listener = cls.message_listener.pop(listener_id, None)
+                        if listener is not None:
+                            for key in (namespace, namespace.group_id):
+                                if key is None:
+                                    continue
+                                listener_ids = cls.message_listener_map.get(key)
+                                if listener_ids is None:
+                                    continue
+                                listener_ids.discard(listener_id)
+                                if not listener_ids:
+                                    cls.message_listener_map.pop(key, None)
+                            # 与 report_message 抢锁时消息可能刚好先到；已投递就不再写异常，
+                            # 也避免对已完成的 Future 调 set_exception。
+                            if not listener.done():
+                                listener.set_exception(
+                                    asyncio.TimeoutError(f"Message Future {listener_id} Timeout.")
+                                )
+            task = asyncio.create_task(
+                timeout_handler()
+            )
 
         return listen_package
 
