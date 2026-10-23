@@ -64,6 +64,7 @@ class CommandCaller:
     # 运行中的命令
     runnings: dict[uuid.UUID, RunningPackage] = {}
     running_map: dict[Namespace, set[uuid.UUID]] = {}
+    running_packages: dict[Type[CommandPackage[Any]], set[uuid.UUID]] = {}
     running_lock = asyncio.Lock()
 
     # 变量系统
@@ -80,20 +81,20 @@ class CommandCaller:
     # PS：信件是一种命令对命令的通信通道
     # 通过提交命名信件与监听命名信件来实现通信并传递数据
     letters_listener: dict[uuid.UUID, LettersPackage[Any]] = {}
-    letters_listener_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    letters_listener_map: dict[str, uuid.UUID] = {}
     letters_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 管道系统
     # 通过管道实现命令对命令的全双工通信
     pipes: dict[uuid.UUID, PipePackage[Any, Any]] = {}
-    pipe_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    pipe_map: dict[str, uuid.UUID] = {}
     pipe_lock: asyncio.Lock = asyncio.Lock()
 
     # 状态系统
     # 通过状态实现命令对命令的事件通信
     # 与信件类似但不可传递数据，只能传递状态
     statuses: dict[uuid.UUID, StatusPackage] = {}
-    statuses_map: dict[Namespace, dict[str, uuid.UUID]] = {}
+    statuses_map: dict[str, uuid.UUID] = {}
     status_lock: asyncio.Lock = asyncio.Lock()
 
     # 外部触发器服务器循环挂载位置
@@ -284,6 +285,7 @@ class CommandCaller:
 
             cls.runnings = {}
             cls.running_map = {}
+            cls.running_packages = {}
 
         async with cls.letters_listener_lock:
             for letter in cls.letters_listener.values():
@@ -413,6 +415,25 @@ class CommandCaller:
             if task_id not in runnings:
                 return None
             return cls.runnings.get(task_id)
+
+    @classmethod
+    async def another_running(cls, namespace: Namespace | None = None) -> set[uuid.UUID]:
+        """
+        Gets other tasks (not including itself) of the same type as this command that are running
+
+        :param namespace: namespace
+        :return: set of running tasks
+        """
+        identity = cls._identity.get()
+        task_id = cls._task_id.get()
+        if identity is None or task_id is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+        async with cls.running_lock:
+            runnings = cls.running_packages.get(type(identity), set())
+            if namespace is not None:
+                runnings = runnings.intersection(cls.running_map.get(namespace, set()))
+            runnings.discard(task_id)
+            return runnings
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
@@ -636,7 +657,7 @@ class CommandCaller:
         return listen_package
 
     @classmethod
-    async def create_letters(cls, name: str, namespace: Namespace) -> LettersPackage:
+    async def create_letters(cls, name: str) -> LettersPackage:
         """
         Create a letters package.
 
@@ -658,39 +679,33 @@ class CommandCaller:
         )
 
         async with cls.letters_listener_lock:
-            user_letters = cls.letters_listener_map.setdefault(namespace, {})
-            user_letters[name] = letters_id
+            cls.letters_listener_map[name] = letters_id
             cls.letters_listener[letters_id] = letters_package
 
         return letters_package
 
     @classmethod
-    async def submit_letters(cls, name: str, value: Any, namespace: Namespace) -> bool:
+    async def submit_letters(cls, name: str, value: Any) -> bool:
         """
         Submit a letters.
 
         :param letters_package: The letters package.
-        :param namespace: The target of listening.
         :return: Whether the submit is successful.
         """
         async with cls.letters_listener_lock:
-            user_letters = cls.letters_listener_map.get(namespace)
-            if user_letters is None:
+            letter_id = cls.letters_listener_map.pop(name, None)
+            if letter_id is None:
                 return False
 
-            letters_ids = user_letters.pop(name, None)
-            if letters_ids is None:
-                return False
-
-            if not user_letters:
-                cls.letters_listener_map.pop(namespace)
-
-            letters_packages = cls.letters_listener.pop(letters_ids)
-            letters_packages.set_result(value)
-            return True
+            if letter_id:
+                letters_packages = cls.letters_listener.pop(letter_id, None)
+                if letters_packages is not None:
+                    letters_packages.set_result(value)
+                    return True
+            return False
 
     @classmethod
-    async def open_pipe(cls, name: str, namespace: Namespace) -> PipePackage[Any, Any]:
+    async def open_pipe(cls, name: str) -> PipePackage[Any, Any]:
         """
         Open a pipe package.
 
@@ -713,9 +728,8 @@ class CommandCaller:
         )
 
         async with cls.pipe_lock:
-            user_pipes = cls.pipe_map.setdefault(namespace, {})
-            if name in user_pipes:
-                other_pipe_id = user_pipes[name]
+            if name in cls.pipe_map:
+                other_pipe_id = cls.pipe_map[name]
                 other_pipe = cls.pipes[other_pipe_id]
                 if other_pipe.opened:
                     raise RuntimeError("The pipe is already opened.")
@@ -724,43 +738,39 @@ class CommandCaller:
                 other_pipe.other_id = pipe_id
                 pipe_package.other_id = other_pipe_id
             else:
-                user_pipes[name] = pipe_id
+                cls.pipe_map[name] = pipe_id
             cls.pipes[pipe_id] = pipe_package
 
         return pipe_package
 
     @classmethod
-    async def close_pipe(cls, name: str, namespace: Namespace) -> bool:
+    async def close_pipe(cls, name: str) -> bool:
         """
         Close a pipe package.
 
         :param name: The name of the pipe package.
         :return: Whether the close is successful.
         """
+
         async with cls.pipe_lock:
-            user_pipes = cls.pipe_map.get(namespace)
-            if user_pipes is None:
-                return False
-            
-            pipe_id = user_pipes.pop(name, None)
+            pipe_id = cls.pipe_map.get(name)
             if pipe_id is None:
                 return False
-            if not user_pipes:
-                cls.pipe_map.pop(namespace)
             
-            pipe_package = cls.pipes.pop(pipe_id)
-            await pipe_package.close()
+            pipe_package = cls.pipes.pop(pipe_id, None)
+            if pipe_package is not None:
+                await pipe_package.close()
 
-            other_pipe_id = pipe_package.other_id
-            if other_pipe_id is None:
+                other_pipe_id = pipe_package.other_id
+                if other_pipe_id is not None:
+                    other_pipe = cls.pipes.pop(other_pipe_id, None)
+                    if other_pipe is not None:
+                        await other_pipe.close()
                 return True
-            
-            other_pipe = cls.pipes.pop(other_pipe_id)
-            await other_pipe.close()
-            return True
+            return False
 
     @classmethod
-    async def create_status(cls, name: str, namespace: Namespace) -> StatusPackage:
+    async def create_status(cls, name: str) -> StatusPackage:
         """
         Create a status package.
 
@@ -781,8 +791,7 @@ class CommandCaller:
         )
 
         async with cls.status_lock:
-            user_statuses = cls.statuses_map.setdefault(namespace, {})
-            user_statuses[name] = status_id
+            cls.statuses_map[name] = status_id
             cls.statuses[status_id] = status_package
 
         return status_package
@@ -796,17 +805,14 @@ class CommandCaller:
         :return: The status.
         """
         async with cls.status_lock:
-            user_statuses = cls.statuses_map.get(namespace)
-            if user_statuses is None:
-                raise RuntimeError("The namespace is not found.")
-            status_id = user_statuses.get(name)
+            status_id = cls.statuses_map.pop(name, None)
             if status_id is None:
                 raise RuntimeError("The status is not found.")
             status_package = cls.statuses[status_id]
         await status_package.wait_finish()
     
     @classmethod
-    async def finish_status(cls, name: str, namespace: Namespace) -> bool:
+    async def finish_status(cls, name: str) -> bool:
         """
         Finish a status.
 
@@ -814,60 +820,14 @@ class CommandCaller:
         :return: Whether the finish is successful.
         """
         async with cls.status_lock:
-            user_statuses = cls.statuses_map.get(namespace)
-            if user_statuses is None:
-                return False
-            status_id = user_statuses.pop(name, None)
+            status_id = cls.statuses_map.pop(name, None)
             if status_id is None:
                 return False
-            if not user_statuses:
-                cls.statuses_map.pop(namespace)
+            if not status_id:
+                cls.statuses_map.pop(status_id)
             status_package = cls.statuses.pop(status_id)
             status_package.finish()
             return True
-
-    @classmethod
-    async def cancel_wait_message(cls, namespace: Namespace) -> bool:
-        """
-        Cancel the wait message.
-
-        :param namespace: The target of listening.
-        :return: Whether the cancel is successful.
-        """
-        async with cls.message_listener_lock:
-            logger.info(
-                "Cancel Wait {namespace} Message Task",
-                namespace = namespace.namespace_str,
-            )
-            if namespace in cls.message_listener_map:
-                listener_ids = cls.message_listener_map.get(namespace)
-                if not listener_ids:
-                    return False
-                for listener_id in listener_ids:
-                    listener = cls.message_listener.pop(listener_id, None)
-                    if listener is not None:
-                        listener.cancel()
-                cls.message_listener_map.pop(namespace, None)
-                logger.info(
-                    "Cancel Wait {namespace} Message Task Success",
-                    namespace = namespace.namespace_str,
-                )
-                return True
-            elif namespace.group_id is not None and namespace.group_id in cls.message_listener_map:
-                listener_ids = cls.message_listener_map.pop(namespace.group_id)
-                if not listener_ids:
-                    return False
-                for listener_id in listener_ids:
-                    listener = cls.message_listener.pop(listener_id, None)
-                    if listener is not None:
-                        listener.cancel()
-                cls.message_listener_map.pop(namespace.group_id, None)
-                logger.info(
-                    "Cancel Wait Group_{group} Message Task Success",
-                    namespace = namespace.group_id,
-                )
-                return True
-        return False
 
     @classmethod
     async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
@@ -943,6 +903,10 @@ class CommandCaller:
                     persona_info.namespace,
                     set()
                 ).add(task_id)
+                cls.running_packages.setdefault(
+                    type(package),
+                    set()
+                ).add(task_id)
         except Exception as e:
             if created is not None:
                 created.set_exception(e)
@@ -962,6 +926,11 @@ class CommandCaller:
                     user_running.discard(task_id)
                     if not user_running:
                         cls.running_map.pop(persona_info.namespace, None)
+                if type(package) in cls.running_packages:
+                    package_running = cls.running_packages[type(package)]
+                    package_running.discard(task_id)
+                    if not package_running:
+                        cls.running_packages.pop(type(package), None)
     
     @classmethod
     async def enter_handler(
