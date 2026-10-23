@@ -28,7 +28,7 @@ class ListenerPackage(Awaitable[PersonaInfo]):
     """Package listener_id."""
     sponsor: uuid.UUID
     """Sponsor task_id."""
-    block_propagation: bool = False
+    block_propagation: bool | Callable[[PersonaInfo], bool] = False
     """To prevent information from being spread down."""
 
     def get_loop(self) -> asyncio.AbstractEventLoop:

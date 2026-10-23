@@ -541,7 +541,7 @@ class CommandCaller:
         cls,
         namespace: Namespace,
         timeout: int | float | None = None,
-        block_propagation: bool = False,
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
         listen_group: bool = False
     ) -> PersonaInfo:
         """
@@ -567,7 +567,7 @@ class CommandCaller:
         cls,
         namespace: Namespace,
         timeout: int | float | None = None,
-        block_propagation: bool = False,
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
         listen_group: bool = False
     ) -> ListenerPackage:
         """
@@ -1817,5 +1817,10 @@ class CommandCaller:
                         )
 
             for listener in listeners:
-                if allow_block_propagation and listener.block_propagation:
+                if not allow_block_propagation:
+                    continue
+                block = listener.block_propagation
+                if callable(block):
+                    block = block(persona_info)
+                if block:
                     send_msg.block_propagation()
