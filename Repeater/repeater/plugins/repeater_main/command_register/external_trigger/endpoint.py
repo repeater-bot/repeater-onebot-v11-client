@@ -13,6 +13,9 @@ async def external_trigger_call(request: ExternalTriggerRequest):
     External trigger call endpoint
     """
     error: BaseException | None = None
+    results: list[Message] = []
+    rendered_texts: list[str] = []
+    retcode: int = 1
     try:
         callback = register_external_trigger.get(request.bot_id)
 
