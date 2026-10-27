@@ -11,3 +11,4 @@
 | `configBranchBindFrom`     | `cfgbbf` | `ConfigBranchBindFrom`    | `BRANCH`    | 4.3.9.1        | 从分支绑定配置                 | 源分支名称                                 | 删除当前活动分支的内容，并作为指定分支的硬链接 |
 | `configBranchInfo`         | `cfgbi`  | `ConfigBranchInfo`        | `BRANCH`    | 4.3.9.1        | 获取分支元数据信息             | 无                                         | 获取当前活动分支的元数据信息 |
 | `getConfigBranchList`      | `gcfgbl` | `GetConfigBranchList`     | `BRANCH`    | 4.3.16.7       | 获取当前配置分支列表           | 无                                         | 返回当前配置分支列表 |
+| `getConfigActiveBranch`    | `gcfgab` | `GetConfigActiveBranch`   | `BRANCH`    | 4.10.7.0       | 获取当前活动配置分支           | 无                                         | 获取当前活动配置分支 |
