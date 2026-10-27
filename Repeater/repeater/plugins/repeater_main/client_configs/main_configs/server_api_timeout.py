@@ -16,3 +16,4 @@ class ServerAPITimeout(BaseModel):
     variable_expansion: int | float | None = 40.0
     render: int | float | None = 600.0
     watermark: int | float | None = 600.0
+    workspace: int | float | None = 10.0
