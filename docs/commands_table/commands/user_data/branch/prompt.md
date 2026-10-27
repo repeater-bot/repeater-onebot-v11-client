@@ -4,7 +4,7 @@
 
 | Command                    | Abridge  | Full Name                 | Type        | Joined Version | Description                   | Parameter Description                     | Remarks |
 | :---                       | :---     | :---                      | :---:       | :---           | :---                          | :---                                      | :---    |
-| `changePromptBranch`       | `cppb`   | `ChangePromptBranch`      | `BRANCH`    | 4.1.2.0        | 切换提示词分支                 | 分支名称                                   | 切换提示词分支 |
+| `changePromptBranch`       | `cpb`    | `ChangePromptBranch`      | `BRANCH`    | 4.1.2.0        | 切换提示词分支                 | 分支名称                                   | 切换提示词分支 |
 | `promptBranchClone`        | `pbc`    | `PromptBranchClone`       | `BRANCH`    | 4.3.9.1        | 克隆提示词分支                 | 目标分支名称                                | 将当前活动分支复制到一个新的分支下 |
 | `promptBranchCloneFrom`    | `pbcf`   | `PromptBranchCloneFrom`   | `BRANCH`    | 4.3.9.1        | 从分支克隆提示词               | 源分支名称                                  | 将指定分支复制到当前活动分支下 |
 | `promptBranchBind`         | `pbb`    | `PromptBranchBind`        | `BRANCH`    | 4.3.9.1        | 绑定提示词分支                 | 目标分支名称                                | 创建一个新的分支，使其硬链接到当前活动分支 |

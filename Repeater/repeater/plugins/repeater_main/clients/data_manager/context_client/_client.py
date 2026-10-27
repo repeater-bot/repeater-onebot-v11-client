@@ -1,7 +1,7 @@
 import httpx
 
 from ....client_configs import *
-from ....assist import PersonaInfo, Response, http_transport
+from ....assist import Response
 from ....logger import logger as base_logger
 from ._response import (
     WithdrawResponse,

@@ -7,4 +7,5 @@ class UserdataCmdsType(StrEnum):
     CONTEXT = "context"
     PROMPT= "prompt"
     CONFIG = "config"
+    PROGRAM = "program"
     NONE = "none"

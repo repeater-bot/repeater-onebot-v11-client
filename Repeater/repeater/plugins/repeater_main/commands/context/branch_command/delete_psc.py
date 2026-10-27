@@ -1,8 +1,7 @@
-from ....assist import PersonaInfo, SendMsg
+from ....assist import PersonaInfo
 from ....cmd_info import CmdTypes
 from ....command_register import CommandCaller
 from ..._bases import DeleteBranch, UserdataCmdsType
-from ....clients import ContextClient
 
 
 @CommandCaller.register

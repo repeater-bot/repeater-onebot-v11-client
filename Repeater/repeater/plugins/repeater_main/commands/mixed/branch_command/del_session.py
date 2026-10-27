@@ -1,10 +1,16 @@
-from ....assist import PersonaInfo, SendMsg
+import asyncio
+from ....assist import PersonaInfo, SendMsg, Response
 from ....cmd_info import CmdTypes
 from ....command_register import(
     CommandCaller,
     CommandPackage
 )
-from ....clients import ContextClient, PromptClient, ConfigClient
+from ....clients import (
+    ContextClient,
+    PromptClient,
+    ConfigClient,
+    ProgramDataClient
+)
 
 
 @CommandCaller.register
@@ -25,11 +31,44 @@ class DeleteSession(CommandPackage):
         context_client = ContextClient(persona_info, user_configs)
         prompt_client = PromptClient(persona_info, user_configs)
         config_client = ConfigClient(persona_info, user_configs)
-        response_context = await context_client.delete()
-        response_prompt = await prompt_client.delete()
-        response_config = await config_client.delete()
+        program_data_client = ProgramDataClient(persona_info, user_configs)
+        tasks: list[tuple[asyncio.Task[Response[None]], str]] = []
+        tasks.append(
+            (
+                asyncio.create_task(
+                context_client.delete()
+                ),
+                "Context"
+            )
+        )
+        tasks.append(
+            (
+                asyncio.create_task(
+                prompt_client.delete()
+                ),
+                "Prompt"
+            )
+        )
+        tasks.append(
+            (
+                asyncio.create_task(
+                config_client.delete()
+                ),
+                "Config"
+            )
+        )
+        tasks.append(
+            (
+                asyncio.create_task(
+                program_data_client.delete()
+                ),
+                "ProgramData"
+            )
+        )
+        await asyncio.gather(*[t[0] for t in tasks])
         await send_msg.send_multiple_responses(
-            (response_context, "Context"),
-            (response_prompt, "Prompt"),
-            (response_config, "Config")
+            *[
+                (t[0].result(), t[1])
+                for t in tasks
+            ]
         )
