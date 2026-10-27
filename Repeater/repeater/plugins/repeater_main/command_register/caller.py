@@ -30,7 +30,7 @@ from nonebot import get_driver
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from nonebot import logger
+from ..logger import logger as base_logger
 from .objects import (
     CommandPackage,
     ListenType,
@@ -46,6 +46,8 @@ from .external_trigger import register_external_trigger, et_server, HandlerResul
 from contextvars import ContextVar
 
 T_Handler_Result = TypeVar("T_Handler_Result")
+
+logger = base_logger.bind(module = "Framework")
 
 class CommandCaller:
     """
