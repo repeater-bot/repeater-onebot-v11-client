@@ -42,7 +42,7 @@ from .objects import (
     PipePackage,
     StatusPackage,
 )
-from .external_trigger import register_external_trigger, et_server
+from .external_trigger import register_external_trigger, et_server, HandlerResult
 from contextvars import ContextVar
 
 T_Handler_Result = TypeVar("T_Handler_Result")
@@ -198,7 +198,12 @@ class CommandCaller:
         )
 
         start_time = time.perf_counter_ns()
-        async def external_trigger_callback(handler: str, event: MessageEvent, args: Message | None):
+        async def external_trigger_callback(
+                handler: str,
+                event: MessageEvent,
+                args: Message | None,
+                output: bool = True
+            ) -> HandlerResult:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
@@ -207,6 +212,7 @@ class CommandCaller:
                 bot = bot,
                 event = event,
                 args = args,
+                output = output
             )
 
             retcode: int = 0
@@ -214,7 +220,11 @@ class CommandCaller:
             if isinstance(result, SubCmdExit):
                 retcode = result.code
 
-            return messages, rendered_texts, retcode
+            return HandlerResult(
+                messages,
+                rendered_texts,
+                retcode
+            )
 
         
         register_external_trigger.register(
@@ -1250,6 +1260,7 @@ class CommandCaller:
         bot: Bot,
         event: MessageEvent,
         args: Message | None = None,
+        output: bool = True,
         debug_mode: bool | None = None
     ) -> tuple[list[Message], list[str], T_Handler_Result | Any]:
         """
@@ -1259,6 +1270,7 @@ class CommandCaller:
         :param bot: Bot
         :param event: MessageEvent
         :param args: Message
+        :param output: bool
         :param debug_mode: bool
         :return: Output Messages, Handler Result
         """
@@ -1275,6 +1287,7 @@ class CommandCaller:
             bot = bot,
             event = event,
             args = args,
+            output = output
         )
 
         outputs: list[Message] = []

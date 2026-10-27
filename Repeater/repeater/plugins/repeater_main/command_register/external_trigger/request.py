@@ -10,6 +10,7 @@ class ExternalTriggerRequest(BaseModel):
     message: str
     args: str | None = None
     message_id: int = 0
+    output: bool = True
 
     font: int = 0
     nickname: str | None = None
