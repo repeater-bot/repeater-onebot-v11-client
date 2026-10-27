@@ -12,7 +12,7 @@ class ProgramBranchInfo(BranchInfo):
         "program_branch_info",
         "Program_Branch_Info",
         "ProgramBranchInfo",
-        "PROMPT_BRANCH_INFO",
+        "PROGRAM_BRANCH_INFO",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM

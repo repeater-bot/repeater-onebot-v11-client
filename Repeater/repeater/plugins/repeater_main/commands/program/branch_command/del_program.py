@@ -12,7 +12,7 @@ class DeleteProgram(DeleteBranch):
         "delete_program",
         "Delete_Program",
         "DeleteProgram",
-        "DELETE_PROMPT",
+        "DELETE_PROGRAM",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM

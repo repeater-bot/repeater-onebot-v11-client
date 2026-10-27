@@ -4,11 +4,11 @@ from ..._bases import GetActiveBranch, UserdataCmdsType
 
 
 @CommandCaller.register
-class GetContextBranchsList(GetActiveBranch):
+class GetContextActiveBranch(GetActiveBranch):
     cmd = "getContextActiveBranch"
     aliases = {
-        "gcbl",
-        "GCBL",
+        "gcab",
+        "GCAB",
         "get_context_active_branch",
         "Get_Context_Active_Branch",
         "GetContextActiveBranch",

@@ -12,7 +12,7 @@ class ChangeProgramBranch(ChangeBranch):
         "change_program_branch",
         "Change_Program_Branch",
         "ChangeProgramBranch",
-        "CHANGE_PROMPT_BRANCH",
+        "CHANGE_PROGRAM_BRANCH",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM

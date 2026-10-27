@@ -12,7 +12,7 @@ class GetProgramBranchsList(GetBranchList):
         "get_program_branchs_list",
         "Get_Program_Branchs_List",
         "GetProgramBranchsList",
-        "GET_PROMPT_BRANCHS_LIST",
+        "GET_PROGRAM_BRANCHS_LIST",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM

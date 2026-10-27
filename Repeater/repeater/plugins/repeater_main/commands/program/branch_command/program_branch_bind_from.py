@@ -12,7 +12,7 @@ class ProgramBranchBindFrom(BindBranchFrom):
         "program_branch_bind_from",
         "Program_Branch_Bind_From",
         "ProgramBranchBindFrom",
-        "PROMPT_BRANCH_BIND_FROM",
+        "PROGRAM_BRANCH_BIND_FROM",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM

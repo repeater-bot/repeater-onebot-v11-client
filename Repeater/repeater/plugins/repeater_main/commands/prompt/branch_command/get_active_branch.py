@@ -4,11 +4,11 @@ from ..._bases import GetActiveBranch, UserdataCmdsType
 
 
 @CommandCaller.register
-class GetPromptBranchsList(GetActiveBranch):
+class GetPromptActiveBranch(GetActiveBranch):
     cmd = "getPromptActiveBranch"
     aliases = {
-        "gpbl",
-        "GPBL",
+        "gpab",
+        "GPAB",
         "get_prompt_active_branch",
         "Get_Prompt_Active_Branch",
         "GetPromptActiveBranch",

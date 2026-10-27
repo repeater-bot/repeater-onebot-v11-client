@@ -12,7 +12,7 @@ class ProgramBranchCloneFrom(CloneBranchFrom):
         "program_branch_clone_from",
         "Program_Branch_Clone_From",
         "ProgramBranchCloneFrom",
-        "PROMPT_BRANCH_CLONE_FROM",
+        "PROGRAM_BRANCH_CLONE_FROM",
     }
-    cmd_type = CmdTypes.BRANCH_PROMPT
-    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROMPT
+    cmd_type = CmdTypes.BRANCH_PROGRAM
+    userdata_cmds_type: UserdataCmdsType = UserdataCmdsType.PROGRAM
