@@ -11,5 +11,6 @@ from .template_render_client import *
 from .version import *
 from .licenses import *
 from .watermark import *
+from .workspace_client import *
 from .content_role import ContentRole
 from .content_unit import ContentUnit

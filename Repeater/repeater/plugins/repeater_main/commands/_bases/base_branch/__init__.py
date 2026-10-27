@@ -6,6 +6,7 @@ from .branch_bind import BindBranch
 from .branch_bind_from import BindBranchFrom
 from .delete_branch import DeleteBranch
 from .branch_info import BranchInfo
+from .get_active_branch import GetActiveBranch
 from .get_branch_list import GetBranchList
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "BindBranchFrom",
     "DeleteBranch",
     "BranchInfo",
+    "GetActiveBranch",
     "GetBranchList",
 ]

@@ -1,4 +1,5 @@
 import os
+import asyncio
 from ._async_base_storage import BinaryStorage
 from pathlib import Path
 from typing import Any, AsyncGenerator, AsyncIterable, Iterable, TypeVar
@@ -18,7 +19,8 @@ class OrjsonStorage(BinaryStorage):
     async def load_json(self, path: str | os.PathLike, default: T = None) -> Any | T:
         try:
             logger.info(f"Loading json from {path}")
-            return orjson.loads(
+            return await asyncio.to_thread(
+                orjson.loads,
                 await self.load(path)
             )
         except Exception as e:
@@ -33,7 +35,10 @@ class OrjsonStorage(BinaryStorage):
             logger.info(f"Saving json to {path}")
             await self.save(
                 path,
-                orjson.dumps(data)
+                data = await asyncio.to_thread(
+                    orjson.dumps,
+                    data
+                )
             )
         except Exception as e:
             logger.error(f"Error saving json to {path}: {e}")
@@ -44,7 +49,10 @@ class OrjsonStorage(BinaryStorage):
             logger.info(f"Loading jsonl from {path}")
             async for line in self.load_line_stream(path):
                 try:
-                    yield orjson.loads(line)
+                    yield await asyncio.to_thread(
+                        orjson.loads,
+                        line
+                    )
                 except Exception as e:
                     if default is None:
                         raise
@@ -60,12 +68,12 @@ class OrjsonStorage(BinaryStorage):
     async def save_jsonl(self, path: str | os.PathLike, data: Iterable[Any], append: bool = False):
         try:
             logger.info(f"Saving jsonl to {path}")
-            def json_dumps(obj: Iterable[Any]):
+            async def json_dumps(obj: Iterable[Any]):
                 for line in obj:
-                    yield orjson.dumps(line)
+                    yield await asyncio.to_thread(orjson.dumps, line)
                     yield b"\n"
             
-            await self.save_stream(
+            await self.save_astream(
                 path,
                 json_dumps(data),
                 append = append
@@ -78,7 +86,7 @@ class OrjsonStorage(BinaryStorage):
         try:
             async def json_dumps(obj: AsyncIterable[Any]):
                 async for line in obj:
-                    yield orjson.dumps(line)
+                    yield await asyncio.to_thread(orjson.dumps, line)
                     yield b"\n"
             
             await self.save_astream(

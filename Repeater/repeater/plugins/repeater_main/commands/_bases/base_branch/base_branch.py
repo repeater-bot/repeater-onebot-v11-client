@@ -1,6 +1,12 @@
 from abc import abstractmethod
 
-from ....clients import ContextClient, PromptClient, ConfigClient, UserDataClient
+from ....clients import (
+    ContextClient,
+    PromptClient,
+    ConfigClient,
+    ProgramDataClient,
+    UserDataClient
+)
 from ....assist import PersonaInfo, SendMsg, Namespace
 from ....cmd_info import CmdTypes
 from ....command_register import CommandPackage
@@ -30,6 +36,12 @@ class BaseBranch(CommandPackage):
                 )
             case UserdataCmdsType.CONFIG:
                 return ConfigClient(
+                    persona_info,
+                    user_configs,
+                    await self.get_namespace(persona_info)
+                )
+            case UserdataCmdsType.PROGRAM:
+                return ProgramDataClient(
                     persona_info,
                     user_configs,
                     await self.get_namespace(persona_info)

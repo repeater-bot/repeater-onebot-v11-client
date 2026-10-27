@@ -10,6 +10,7 @@ from .server import et_server, configs
 from .request import ExternalTriggerRequest
 from .response import ExternalTriggerResponse
 
+from .callback import CALLBACK_TYPE, HandlerResult
 
 __all__ = [
     "Register",
@@ -24,4 +25,7 @@ __all__ = [
     "configs",
     "ExternalTriggerRequest",
     "ExternalTriggerResponse",
+    
+    "CALLBACK_TYPE",
+    "HandlerResult",
 ]

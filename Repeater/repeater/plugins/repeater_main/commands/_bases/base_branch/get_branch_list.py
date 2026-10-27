@@ -25,7 +25,13 @@ class GetBranchList(BaseBranch):
         
         client = await self.get_client(persona_info)
         response = await client.get_branch_list()
-        if response.code == 200:
+        active_branch_response = await client.get_active_branch()
+        if active_branch_response:
+            active_branch = active_branch_response.text
+        else:
+            active_branch = None
+            
+        if response.code:
             data = response.json()
             if not isinstance(data, list):
                 await send_msg.send_error("Unable to process data.")
@@ -37,7 +43,10 @@ class GetBranchList(BaseBranch):
                 text_buffer.append("Branchs:")
                 for branch_id in data:
                     if pattern.match(branch_id):
-                        text_buffer.append(f"  - {branch_id}")
+                        if branch_id == active_branch:
+                            text_buffer.append(f"  - {branch_id} (active)")
+                        else:
+                            text_buffer.append(f"  - {branch_id}")
             else:
                 text_buffer.append("No branchs found.")
 

@@ -1,10 +1,8 @@
-import httpx
-
 from ....logger import logger as base_logger
 from typing import (
     Any,
 )
-from ....assist import Response, PersonaInfo, http_transport
+from ....assist import Response
 # 服务端配置
 from ....client_configs import *
 

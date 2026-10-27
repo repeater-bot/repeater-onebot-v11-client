@@ -65,6 +65,20 @@ ALIVED_TIME_NS = "/alived/time/ns"
 WATERMARK_ENCODE_ROUTE = "/watermark/encode"
 WATERMARK_DECODE_ROUTE = "/watermark/decode"
 
+# ==== WORKSPACE API ==== #
+WORKSPACE_GET_FILE_ROUTE = "/workspace/get_file"
+WORKSPACE_GET_TEXT_ROUTE = "/workspace/get_text"
+WORKSPACE_LIST_DIR_ROUTE = "/workspace/list_dir"
+WORKSPACE_GLOB_ROUTE = "/workspace/glob"
+WORKSPACE_REMATCH_ROUTE = "/workspace/rematch"
+WORKSPACE_GET_INFO_ROUTE = "/workspace/get_info"
+WORKSPACE_EXISTS_ROUTE = "/workspace/exists"
+WORKSPACE_WRITE_FILE_ROUTE = "/workspace/write_file"
+WORKSPACE_MKDIR_ROUTE = "/workspace/mkdir"
+WORKSPACE_MOVE_ROUTE = "/workspace/move"
+WORKSPACE_COPY_ROUTE = "/workspace/copy"
+WORKSPACE_DELETE_ROUTE = "/workspace/delete"
+
 # ==== CONFIG ==== #
 REPEATER_DEBUG_MODE: bool = net_config.repeater_debug_mode # 是否开启调试模式，调试模式下，将直接返回消息内容，而不进行后端访问操作
 

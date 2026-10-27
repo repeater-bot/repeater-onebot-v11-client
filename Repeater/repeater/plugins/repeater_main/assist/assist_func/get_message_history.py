@@ -1,6 +1,5 @@
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from .make_message_event import make_message_event
-from ...logger import logger
 
 async def get_group_message_history(
         bot: Bot,

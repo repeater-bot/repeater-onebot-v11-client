@@ -1,7 +1,5 @@
-import httpx
-
 from ....client_configs import *
-from ....assist import Response, PersonaInfo, http_transport
+from ....assist import Response
 from ....logger import logger as base_logger
 from .._base_user_data_client import UserDataClient
 

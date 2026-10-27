@@ -48,6 +48,13 @@ class UserDataClient(BaseClient):
         return Response(response)
     # endregion
 
+    # region get active branch
+    async def get_active_branch(self) -> Response[str]:
+        response = await self.client.get(
+            self.join_url_static("userdata", self.data_type, "active", self._persona_info.namespace_str)
+        )
+        return Response(response)
+
     # region get branch list
     async def get_branch_list(self) -> Response[list[str]]:
         response = await self.client.get(

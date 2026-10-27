@@ -121,7 +121,7 @@ class CommandPackage(ABC, Generic[T]):
     state: T_State | None = None
     """Default state"""
 
-    cmd_type: CmdTypes = CmdTypes.RESERVED
+    cmd_type: str | CmdTypes = CmdTypes.RESERVED
     """Command Type"""
 
     acceptable_sources: Collection[MessageSource] | None = None
@@ -145,7 +145,10 @@ class CommandPackage(ABC, Generic[T]):
     @property
     def component(self) -> str:
         """The human-readable name of the Handler (required) """
-        return f"Repeater.{self.cmd_type.value}.{self.__class__.__name__}"
+        if isinstance(self.cmd_type, CmdTypes):
+            return f"Repeater.{self.cmd_type.value}.{self.__class__.__name__}"
+        else:
+            return f"Repeater.{self.cmd_type}.{self.__class__.__name__}"
 
     @classmethod
     def package_path(cls) -> str:
@@ -217,6 +220,7 @@ class CommandPackage(ABC, Generic[T]):
         
         You can intercept and do whatever you want here.
 
+        :param task_id: Task ID
         :param bot: Bot object
         :param event: MessageEvent object
         :param matcher: Matcher object
@@ -241,6 +245,7 @@ class CommandPackage(ABC, Generic[T]):
         
         You can intercept and do whatever you want here.
 
+        :param task_id: Task ID
         :param bot: Bot object
         :param event: MessageEvent object
         :param args: Message object
@@ -261,17 +266,17 @@ class CommandPackage(ABC, Generic[T]):
         )
         return persona_info, send_msg
 
-    async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None) -> tuple[PersonaInfo, SendMsg]:
+    async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None, output: bool = True) -> tuple[PersonaInfo, SendMsg]:
         """
         When you register an External Handler, the Repeater will call this section before starting to get the abstraction layer object.
         
         You can intercept and do whatever you want here.
 
+        :param task_id: Task ID
         :param bot: Bot object
         :param event: MessageEvent object
         :param args: Message object
-        :param matcher: Matcher object
-        :param task_id: Task ID
+        :param output: Whether to output the result.
         :return: PersonaInfo object, SendMsg object
         """
         persona_info = PersonaInfo.from_external(
@@ -285,6 +290,8 @@ class CommandPackage(ABC, Generic[T]):
             persona_info = persona_info,
             matcher = None
         )
+        if not output:
+            send_msg.sending_target = SendingTarget.BUFFER
         return persona_info, send_msg
 
     

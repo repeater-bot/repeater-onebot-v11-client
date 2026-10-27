@@ -2,9 +2,9 @@
 *.env
 __pycache__/
 *venv/
-.vscode/
-logs/
-storage/
+/.vscode/
+/logs/
+/storage/
 
 # NoneBot Files
 /*/.env.dev

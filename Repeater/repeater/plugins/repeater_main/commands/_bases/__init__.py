@@ -10,6 +10,7 @@ from .base_branch import (
     BindBranchFrom,
     DeleteBranch,
     BranchInfo,
+    GetActiveBranch,
     GetBranchList,
 )
 from .base_nexus import (
@@ -39,6 +40,7 @@ __all__ = [
     "BindBranchFrom",
     "DeleteBranch",
     "BranchInfo",
+    "GetActiveBranch",
     "GetBranchList",
 
     "BaseNexus",

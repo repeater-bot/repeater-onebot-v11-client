@@ -31,3 +31,4 @@
 | `horizontalTree`           | `ht`     | `HorizontalTree`          | 4.9.10.2       | 横向调用树                     | 任务 ID (可选)                              | 输出树结构，当不输入任何参数时，逆向查找根并输出整棵调用树 |
 | `asynchronously`           | `async`  | `Asynchronously`          | 4.10.0.0       | 异步执行                       | 与 `bypass` 相同                            | 与 `bypass` 命令相同，但会返回任务 ID，可以用于其他操作 |
 | `wait`                     | `wt`     | `Wait`                    | 4.10.0.0       | 等待任务结束                   | 任务 ID                                    | 等待任务结束，并透传返回值 |
+| `renderToText`             | `rtt`    | `RenderToText`            | 4.10.1.0       | 获取渲染的文本并输出纯文本       | 格式为：命令 参数                          | 获取渲染的文本并输出纯文本 |

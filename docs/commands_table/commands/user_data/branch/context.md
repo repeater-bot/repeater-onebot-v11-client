@@ -11,3 +11,4 @@
 | `contextBranchBindFrom`    | `cbbf`   | `ContextBranchBindFrom`   | `BRANCH`    | 4.3.9.1        | 从分支绑定上下文               | 源分支名称                                 | 删除当前活动分支的内容，并作为指定分支的硬链接 |
 | `contextBranchInfo`        | `cbi`    | `ContextBranchInfo`       | `BRANCH`    | 4.3.9.1        | 获取分支元数据信息             | 无                                         | 获取当前活动分支的元数据信息 |
 | `getContextBranchsList`    | `gcbl`   | `GetContextBranchslist`   | `BRANCH`    | 4.3.16.7       | 获取上下文分支列表             | 无                                         | 返回当前用户的上下文分支列表 |
+| `getContextActiveBranch`   | `gcab`   | `GetContextActiveBranch`  | `BRANCH`    | 4.10.7.0       | 获取当前活动上下文分支          | 无                                         | 获取当前活动上下文分支 |
