@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from typing import Generic, TypeVar, Type, Any
-from httpx import Response as HTTPXResponse
+from httpx import Headers, Response as HTTPXResponse
 from pydantic import BaseModel
 from .error_response import ErrorResponse
 from .exception_info import ExceptionInfo
@@ -44,6 +44,12 @@ class Response(Generic[T_Response]):
         if self._httpx_response is None:
             raise ValueError("response not initialized")
         return self._httpx_response.content
+
+    @property
+    def headers(self) -> Headers:
+        if self._httpx_response is None:
+            raise ValueError("response not initialized")
+        return self._httpx_response.headers
     
     @property
     def exception_info(self) -> ExceptionInfo | None:
