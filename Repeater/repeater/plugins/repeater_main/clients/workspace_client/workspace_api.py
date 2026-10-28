@@ -13,10 +13,21 @@ class WorkspaceClient(BaseClient):
 
     async def get_file(
             self,
-            path: str
+            path: str,
+            start: int | None = None,
+            length: int | None = None,
+            headers: dict[str, str] | None = None
         ) -> Response[bytes]:
+        request_headers = dict(headers or {})
+        if start is None and length is not None:
+            start = 0
+        if start is not None:
+            end = "" if length is None else str(start + length - 1)
+            request_headers["Range"] = f"bytes={start}-{end}"
+
         response = await self.client.get(
-            url = self.join_url(WORKSPACE_GET_FILE_ROUTE, path)
+            url = self.join_url(WORKSPACE_GET_FILE_ROUTE, path),
+            headers = request_headers or None
         )
         return Response(
             httpx_response = response
@@ -36,6 +47,12 @@ class WorkspaceClient(BaseClient):
         return Response(
             httpx_response = response
         )
+
+    def file_url(
+            self,
+            path: str
+        ) -> str:
+        return self.join_url(WORKSPACE_GET_FILE_ROUTE, path)
 
     async def list_dir(
             self,
