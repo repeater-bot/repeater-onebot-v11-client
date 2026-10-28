@@ -14,7 +14,7 @@ def generates_text_from_messages_list(messages: Iterable[dict | MessageEvent]):
             time = datetime.fromtimestamp(event.time)
         else:
             try:
-                event = MessageEvent(**message)
+                event = MessageEvent.model_validate(message)
             except ValidationError:
                 try:
                     nick_name = message["sender"]["card"] or message["sender"]["nickname"]

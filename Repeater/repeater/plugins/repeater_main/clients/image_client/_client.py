@@ -121,10 +121,10 @@ class ImageClient(BaseClient):
                 if line:
                     data = orjson.loads(line)
                     try:
-                        model = PartialImageEvent(**data)
+                        model = PartialImageEvent.model_validate(data)
                     except ValidationError as e:
                         try:
-                            model = CompletedImageEvent(**data)
+                            model = CompletedImageEvent.model_validate(data)
                         except ValidationError as e:
                             raise ValueError("Invalid event type") from e
                     yield model

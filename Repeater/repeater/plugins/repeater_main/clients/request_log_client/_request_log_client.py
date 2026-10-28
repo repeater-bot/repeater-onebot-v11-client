@@ -19,4 +19,4 @@ class RequestLogClient(BaseClient):
             response.raise_for_status()
             async for chunk in response.aiter_lines():
                 chunk_data = orjson.loads(chunk)
-                yield RequestLog(**chunk_data)
+                yield RequestLog.model_validate(chunk_data)

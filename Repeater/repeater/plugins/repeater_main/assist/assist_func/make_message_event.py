@@ -16,4 +16,4 @@ def make_message_event(bot: Bot, data: dict) -> MessageEvent:
     if "self_id" not in data:
         data["self_id"] = bot.self_id
     
-    return MessageEvent(**data)
+    return MessageEvent.model_validate(data)

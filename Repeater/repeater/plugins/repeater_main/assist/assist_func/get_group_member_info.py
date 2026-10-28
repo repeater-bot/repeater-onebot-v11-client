@@ -12,4 +12,4 @@ async def get_group_member_info(
         user_id = user_id,
         no_cache = no_cache,
     )
-    return GroupMemberInfo(**result)
+    return GroupMemberInfo.model_validate(result)

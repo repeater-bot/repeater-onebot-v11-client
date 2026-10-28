@@ -9,6 +9,6 @@ async def get_group_member_list(
         group_id = group_id
     )
     return [
-        GroupMemberInfo(**member)
+        GroupMemberInfo.model_validate(member)
         for member in result
     ]

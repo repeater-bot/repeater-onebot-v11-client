@@ -69,7 +69,7 @@ class ContextClient(UserDataClient):
         if isinstance(data, list):
             return Response(
                 response,
-                parsed_data = [ContentUnit(**data) for data in data]
+                parsed_data = [ContentUnit.model_validate(data) for data in data]
             )
         else:
             return Response(response)

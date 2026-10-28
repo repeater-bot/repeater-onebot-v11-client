@@ -988,7 +988,7 @@ class PersonaInfo:
         for msg in self.message:
             if msg.type == "file":
                 urls.append(
-                    FileInfo(**msg.data)
+                    FileInfo.model_validate(msg.data)
                 )
         return urls
     

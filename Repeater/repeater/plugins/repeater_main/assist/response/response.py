@@ -78,14 +78,14 @@ class Response(Generic[T_Response]):
         if self._model is not None:
             if issubclass(self._model, BaseModel):
                 data: Any = self.json()
-                return self._model(**data)
+                return self._model.model_validate(data)
         
         return None
     
     def get_error(self) -> ErrorResponse | None:
         if self.code >= 400:
             try:
-                return ErrorResponse(**self.json())
+                return ErrorResponse.model_validate(self.json())
             except Exception:
                 return None
     

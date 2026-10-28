@@ -31,7 +31,7 @@ class RecentSpeakingRanking(CommandPackage):
         total_effective: int = 0
         for message in message_list["messages"]:
             try:
-                event = MessageEvent(**message)
+                event = MessageEvent.model_validate(message)
                 member_name = event.sender.card or event.sender.nickname
                 total_effective += 1
             except ValidationError:
