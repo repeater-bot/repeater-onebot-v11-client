@@ -74,8 +74,14 @@ class BaseChat(CommandPackage):
         videos: list[str] = persona_info.get_video_url()
         reply_msgs_texts, not_open_files = await self.open_file(persona_info)
 
+        files_text = "\n".join(reply_msgs_texts)
+        if files_text and text:
+            text = f"{files_text}\n{text}"
+        else:
+            text = files_text + text
+
         return (
-            "\n".join(reply_msgs_texts) + text,
+            text,
             images,
             audios,
             videos,
@@ -91,7 +97,7 @@ class BaseChat(CommandPackage):
             f"[From {persona_info.display_name}({persona_info.namespace_str})]",
             reply_msgs_text,
         ]
-        return await self.post_parse_text("\n".join(text_buffer))
+        return "\n".join(text_buffer)
     
     async def parse_forward_msgs(
         self,
@@ -110,9 +116,9 @@ class BaseChat(CommandPackage):
     async def parse_input_text(
         self,
         persona_info: PersonaInfo,
-        send_msg: SendMsg,
+        text: str,
     ) -> str:
-        return persona_info.message_stripped_str
+        return text
 
     async def parse_message(
         self,
@@ -136,7 +142,7 @@ class BaseChat(CommandPackage):
                 send_msg,
                 await self.parse_input_text(
                     persona_info,
-                    send_msg
+                    persona_info.message_stripped_str
                 )
             )
 
@@ -152,7 +158,7 @@ class BaseChat(CommandPackage):
             reply_msgs_text = ""
 
             if not reply_msgs:
-                logger.warning("No reply messages")
+                logger.debug("No reply messages")
             else:
                 for msg in reply_msgs:
                     (
@@ -175,11 +181,12 @@ class BaseChat(CommandPackage):
                     
                 reply_msgs_text = "\n\n".join(reply_msgs_texts)
 
-                if any(reply_msgs_texts):
+                if reply_msgs_text:
+                    reply_block = f"Reply messages:\n{reply_msgs_text}"
                     if message_text:
-                        message_text = "Reply messages:\n{{reply_msgs_text}}\n\n---\n\n" + message_text
+                        message_text = f"{reply_block}\n\n---\n\n{message_text}"
                     else:
-                        message_text = reply_msgs_text
+                        message_text = reply_block
             
             return SendMessage(
                 text = message_text,
@@ -231,7 +238,15 @@ class BaseChat(CommandPackage):
             send_msg = send_msg
         )
 
-        if not response and response.initialized:
+        if not response.initialized:
+            logger.error(
+                "No response was initialized by {component}",
+                component = send_msg.component
+            )
+            await send_msg.send_error(
+                "No response was returned by the backend."
+            )
+        elif not response:
             await send_msg.send_error_response(
                 response = response,
             )
