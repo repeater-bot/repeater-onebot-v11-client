@@ -47,7 +47,7 @@ class TokenCalculator(CommandPackage):
 
     async def get_files(self, persona_info: PersonaInfo) -> list[FileInfo]:
         file_ids: list[FileInfo] = []
-        for msg in await persona_info.from_reply_reversed_chain():
+        for msg in await persona_info.from_reversed_reply_chain():
             file_ids.extend(msg.get_file_infos())
         file_ids.extend(persona_info.get_file_infos())
         return file_ids

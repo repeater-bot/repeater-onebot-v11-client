@@ -37,7 +37,7 @@ class SendZone(CommandPackage):
         text_buffer: list[str] = []
         images: list[str] = []
 
-        for reply in await persona_info.from_reply_reversed_chain():
+        for reply in await persona_info.from_reversed_reply_chain():
             text = reply.message_stripped_str
             if text:
                 text_buffer.append(text)

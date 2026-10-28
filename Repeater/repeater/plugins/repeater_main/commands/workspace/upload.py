@@ -1,4 +1,4 @@
-from ...assist import PersonaInfo, SendMsg, Downloader
+from ...assist import PersonaInfo, SendMsg, Downloader, FileInfo
 from ...clients import WorkspaceClient
 from ...command_register import CommandCaller, CommandPackage
 from ...cmd_info import CmdTypes
@@ -31,7 +31,16 @@ class UploadToWorkspace(CommandPackage):
         path = persona_info.message_stripped_str
         user_configs = await persona_info.get_user_configs()
         client = WorkspaceClient(persona_info, user_configs)
-        files = persona_info.get_file_infos()
+        
+        files: list[FileInfo] = []
+        for reply in await persona_info.from_reversed_reply_chain():
+            files.extend(
+                reply.get_file_infos()
+            )
+        files.extend(
+            persona_info.get_file_infos()
+        )
+
         if len(files) == 1:
             file = files[0]
             res = await client.write_file(

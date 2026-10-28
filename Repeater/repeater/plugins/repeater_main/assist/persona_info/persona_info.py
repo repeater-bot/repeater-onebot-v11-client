@@ -315,7 +315,7 @@ class PersonaInfo:
         instance._enter_type = self._enter_type
         return instance
 
-    async def from_reply_reversed_chain(
+    async def from_reversed_reply_chain(
             self,
             max_depth: int | None = None,
             break_chain: Callable[[PersonaInfo], bool] = lambda _: False,

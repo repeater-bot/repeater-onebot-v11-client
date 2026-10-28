@@ -146,7 +146,7 @@ class BaseChat(CommandPackage):
             reply_videos_list: list[str] = []
             reply_files_list: list[str] = []
             
-            reply_msgs = await persona_info.from_reply_reversed_chain(
+            reply_msgs = await persona_info.from_reversed_reply_chain(
                 break_chain = lambda persona_info: persona_info.is_self
             )
             reply_msgs_text = ""

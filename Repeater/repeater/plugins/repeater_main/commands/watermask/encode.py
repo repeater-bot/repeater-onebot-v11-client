@@ -30,7 +30,7 @@ class WatermarkEncode(CommandPackage):
     async def get_image_and_text(self, persona_info: PersonaInfo):
         images: list[str] = []
         text: list[str] = []
-        for msg in await persona_info.from_reply_reversed_chain():
+        for msg in await persona_info.from_reversed_reply_chain():
             images.extend(msg.get_images_url())
             text.append(msg.message_stripped_str)
 
