@@ -38,7 +38,6 @@ from .persona_info import (
     FileInfo
 )
 from .namespace import (
-    MessageSource,
     Namespace
 )
 from .response import (
@@ -110,6 +109,10 @@ from .fuzzy import (
     FuzzyMatch,
     Distances,
 )
+from .scene import (
+    Scene,
+    MessageSource,
+)
 
 __all__ = [
     "get_first_mentioned_user",
@@ -148,7 +151,6 @@ __all__ = [
     "PersonaInfo",
     "FileInfo",
 
-    "MessageSource",
     "Namespace",
 
     "Response",
@@ -206,4 +208,7 @@ __all__ = [
     "Ratios",
     "FuzzyMatch",
     "Distances",
+
+    "Scene",
+    "MessageSource"
 ]

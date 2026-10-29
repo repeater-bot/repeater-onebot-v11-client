@@ -3,7 +3,7 @@ import hashlib
 import base64
 from pydantic import BaseModel, ConfigDict
 from ...client_configs import storage_configs
-from .message_source import MessageSource
+from ..scene import MessageSource, Scene
 
 group_pattern = re.compile(r"^Group_(?P<group_id>[0-9]+)_(?P<user_id>[0-9]+)$")
 private_pattern = re.compile(r"^Private_(?P<user_id>[0-9]+)$")
@@ -13,7 +13,6 @@ class Namespace(BaseModel):
     用户命名空间
     """
     model_config = ConfigDict(
-        validate_assignment=True,
         frozen = True
     )
 
@@ -28,6 +27,21 @@ class Namespace(BaseModel):
     @property
     def is_private(self) -> bool:
         return self.mode == MessageSource.PRIVATE
+
+    @property
+    def scene(self) -> Scene:
+        if self.mode == MessageSource.GROUP:
+            return Scene(
+                source = self.mode,
+                id = self.group_id,
+            )
+        elif self.mode == MessageSource.PRIVATE:
+            return Scene(
+                source = self.mode,
+                id = self.user_id,
+            )
+        else:
+            raise ValueError("Invalid namespace mode")
 
     @classmethod
     def from_str(cls, string: str) -> "Namespace":

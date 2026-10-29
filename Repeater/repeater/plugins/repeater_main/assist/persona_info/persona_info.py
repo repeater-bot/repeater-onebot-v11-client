@@ -42,7 +42,8 @@ from ..models import (
     GroupMemberInfo,
     BusinessCard
 )
-from ..namespace import MessageSource, Namespace
+from ..namespace import Namespace
+from ..scene import MessageSource, Scene
 from .enter_type import EnterType
 from .file_info import FileInfo
 from .cached_apis import CachedAPI
@@ -136,6 +137,31 @@ class PersonaInfo:
         
         self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
         self._user_config_loader = UserConfigLoader(self.namespace)
+
+        self._namespace: Namespace
+        if self._source == MessageSource.GROUP:
+            self._namespace = Namespace(
+                mode = MessageSource.GROUP,
+                group_id = self._group_id,
+                user_id = self.user_id
+            )
+        else:
+            self._namespace = Namespace(
+                mode = MessageSource.PRIVATE,
+                user_id = self.user_id
+            )
+
+        self._scene: Scene
+        if self._source == MessageSource.GROUP:
+            self._scene = Scene(
+                source = MessageSource.GROUP,
+                id = self._group_id,
+            )
+        else:
+            self._scene = Scene(
+                source = MessageSource.PRIVATE,
+                id = self.user_id
+            )
 
     def __repr__(self) -> str:
         args_map:  list[tuple[str, Any]] = [
@@ -660,17 +686,7 @@ class PersonaInfo:
         """
         当前用户所在命名空间
         """
-        if self._source == MessageSource.GROUP:
-            return Namespace(
-                mode = MessageSource.GROUP,
-                group_id = self._group_id,
-                user_id = self.user_id
-            )
-        else:
-            return Namespace(
-                mode = MessageSource.PRIVATE,
-                user_id = self.user_id
-            )
+        return self._namespace
     
     @property
     def namespace_str(self) -> str:
@@ -678,6 +694,20 @@ class PersonaInfo:
         当前用户所在命名空间字符串
         """
         return self.namespace.namespace_str
+
+    @property
+    def scene(self) -> Scene:
+        """
+        当前用户所在场景
+        """
+        return self._scene
+
+    @property
+    def scene_str(self) -> str:
+        """
+        当前用户所在场景字符串
+        """
+        return self.scene.scene_str
     
     @property
     def private_namespace(self) -> Namespace:
