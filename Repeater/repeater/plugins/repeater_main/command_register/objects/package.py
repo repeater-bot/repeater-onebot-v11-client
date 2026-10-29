@@ -112,7 +112,7 @@ class CommandPackage(ABC, Generic[T]):
     expire_time: datetime | timedelta | None = None
     """Cache expiration time"""
 
-    priority: int = 1
+    priority: int = 10
     """Handler priority (the lower the number, the higher the priority) """
 
     block: bool = True
