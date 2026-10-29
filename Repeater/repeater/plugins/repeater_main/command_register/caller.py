@@ -727,6 +727,20 @@ class CommandCaller:
         return letters_package
 
     @classmethod
+    async def exists_letters(cls, name: str) -> bool:
+        """
+        Check whether the letters package exists.
+
+        :param name: The name of the letters package.
+        :return: Whether the letters package exists.
+        """
+        async with cls.letters_listener_lock:
+            letter_id = cls.letters_listener_map.get(name)
+            if letter_id is None:
+                return False
+            return cls.letters_listener.get(letter_id) is not None
+
+    @classmethod
     async def submit_letters(cls, name: str, value: Any) -> bool:
         """
         Submit a letters.
@@ -784,6 +798,20 @@ class CommandCaller:
             cls.pipes[pipe_id] = pipe_package
 
         return pipe_package
+
+    @classmethod
+    async def exists_pipe(cls, name: str) -> bool:
+        """
+        Check whether the pipe package exists.
+
+        :param name: The name of the pipe package.
+        :return: Whether the pipe package exists.
+        """
+        async with cls.pipe_lock:
+            pipe_id = cls.pipe_map.get(name)
+            if pipe_id is None:
+                return False
+            return cls.pipes.get(pipe_id) is not None
 
     @classmethod
     async def close_pipe(cls, name: str) -> bool:
@@ -900,10 +928,7 @@ class CommandCaller:
             status_id = cls.statuses_map.get(name)
             if status_id is None:
                 return False
-            status_package = cls.statuses.get(status_id)
-            if status_package is None:
-                return False
-            return True
+            return cls.statuses.get(status_id) is not None
 
     @classmethod
     async def run_handle(
