@@ -220,6 +220,13 @@
     // 为 0 时则不进行 hash
     "hash_namespace_iterations": 100000,
 
+    // Scene 字符串序列化时 hash 的掺盐内容
+    "hash_scene_salt": "",
+
+    // Scene 字符串序列化时 hash 的迭代次数
+    // 为 0 时则不进行 hash
+    "hash_scene_iterations": 100000,
+
     // 是否允许用户构造任意消息发送
     "allow_send_any_message": false,
 
