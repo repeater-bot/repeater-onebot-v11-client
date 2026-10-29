@@ -125,7 +125,12 @@ class CommandCaller:
     @classmethod
     async def on_startup(cls):
         """
-        Run on startup.
+        Called by the NoneBot on_startup driver event wired in lifespan.py.
+
+        It starts the external trigger server task when
+        storage_configs.external_trigger_server.enabled is set, then broadcasts
+        on_framework_startup to every registered package concurrently; exceptions from those hooks
+        are swallowed by asyncio.gather(..., return_exceptions=True).
         """
         logger.info(
             "startup..."
@@ -159,7 +164,12 @@ class CommandCaller:
     @classmethod
     async def on_shutdown(cls):
         """
-        Run on shutdown.
+        Called by the NoneBot on_shutdown driver event wired in lifespan.py.
+
+        It stops the external trigger server task if it was started, broadcasts
+        on_framework_shutdown to every registered package concurrently, then calls close_packages(),
+        which cancels listeners, running handlers, pipes and statuses and clears the variable and
+        call indexes. Hook exceptions are swallowed by asyncio.gather(..., return_exceptions=True).
         """
         logger.info(
             "shutdown..."
@@ -190,7 +200,11 @@ class CommandCaller:
     @classmethod
     async def on_bot_connect(cls, bot: Bot):
         """
-        Run on bot connect.
+        Called by the NoneBot on_bot_connect driver event wired in lifespan.py.
+
+        It registers the external-trigger callback for bot.self_id first, then broadcasts
+        on_bot_connect(bot) to every registered package concurrently; hook exceptions are swallowed
+        by asyncio.gather(..., return_exceptions=True).
 
         :param bot: bot instance
         """
@@ -252,7 +266,11 @@ class CommandCaller:
     @classmethod
     async def on_bot_disconnect(cls, bot: Bot):
         """
-        bot disconnect.
+        Called by the NoneBot on_bot_disconnect driver event wired in lifespan.py.
+
+        It unregisters the external-trigger callback for bot.self_id first, then broadcasts
+        on_bot_disconnect(bot) to every registered package concurrently; hook exceptions are
+        swallowed by asyncio.gather(..., return_exceptions=True).
 
         :param bot: bot instance
         """
@@ -842,6 +860,23 @@ class CommandCaller:
             return True
 
     @classmethod
+    async def check_status(cls, name: str) -> bool:
+        """
+        Check a status.
+
+        :param name: The name of the status.
+        :return: Whether the status is active.
+        """
+        async with cls.status_lock:
+            status_id = cls.statuses_map.get(name)
+            if status_id is None:
+                raise ValueError("The status is not found.")
+            status_package = cls.statuses.get(status_id)
+            if status_package is None:
+                raise RuntimeError("The status is not found.")
+            return not status_package.is_finished()
+
+    @classmethod
     async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
         """
         Cancel the wait message listener.
@@ -1077,7 +1112,7 @@ class CommandCaller:
             finally:
                 await package.handler_exit(persona_info, send_msg)
         except BreakHandler as e:
-            return SubCmdBreaked(e.code)
+            return await package.on_exception_parser_error(e, persona_info, send_msg)
 
     @classmethod
     async def timed_scheduling(
