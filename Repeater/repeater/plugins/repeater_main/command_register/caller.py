@@ -8,8 +8,9 @@ from ..assist import (
     PersonaInfo,
     SendMsg,
     SendingTarget,
+    Scene,
     Namespace,
-    Variables
+    Variables,
 )
 from ..cmd_info import CmdTypes
 from ..client_configs import storage_configs
@@ -75,7 +76,7 @@ class CommandCaller:
 
     # 消息监听器
     message_listener: dict[uuid.UUID, ListenerPackage] = {}
-    message_listener_map: dict[Namespace | str, set[uuid.UUID]] = {}
+    message_listener_map: dict[Namespace | Scene, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 信件监听器
@@ -569,25 +570,23 @@ class CommandCaller:
     @classmethod
     async def wait_message(
         cls,
-        namespace: Namespace,
+        target: Namespace | Scene,
         timeout: int | float | None = None,
-        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
-        listen_group: bool = False
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> PersonaInfo:
         """
         Wait for the message.
 
-        :param namespace: The target of listening.
+        :param target: The target of listening.
         :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
         """
         future = await cls.message_future(
-            namespace = namespace,
+            target = target,
             timeout = timeout,
-            block_propagation = block_propagation,
-            listen_group = listen_group
+            block_propagation = block_propagation
         )
         result = await future
         return result
@@ -595,15 +594,14 @@ class CommandCaller:
     @classmethod
     async def message_future(
         cls,
-        namespace: Namespace,
+        target: Namespace | Scene,
         timeout: int | float | None = None,
-        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
-        listen_group: bool = False
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> ListenerPackage:
         """
         Create a Future to wait for the message.
 
-        :param namespace: The target of listening.
+        :param target: The target of listening.
         :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
@@ -619,7 +617,7 @@ class CommandCaller:
 
         listen_package = ListenerPackage(
             future = future,
-            target = namespace,
+            target = target,
             id = listener_id,
             sponsor = source,
             block_propagation = block_propagation
@@ -627,19 +625,13 @@ class CommandCaller:
 
         async with cls.message_listener_lock:
             logger.info(
-                "{handler}({task_id}) Create Wait {namespace} Message Task: {future}",
+                "{handler}({task_id}) Create Wait {target} Message Task: {future}",
                 handler = identity.component,
                 task_id = source,
-                namespace = namespace.namespace_str,
+                target = str(target),
                 future = repr(future),
             )
-
-            if listen_group:
-                if namespace.group_id is None:
-                    raise ValueError(f"Namespace {namespace} is not have group_id")
-                cls.message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
-            else:
-                cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
+            cls.message_listener_map.setdefault(target, set()).add(listener_id)
             cls.message_listener[listener_id] = listen_package
 
         if timeout is not None:
@@ -654,26 +646,15 @@ class CommandCaller:
                 except asyncio.TimeoutError:
                     async with cls.message_listener_lock:
                         logger.info(
-                            "{handler}({task_id}) Timeout Wait {namespace} Message Task: {future}",
+                            "{handler}({task_id}) Timeout Wait {target} Message Task: {future}",
                             handler = identity.component,
                             task_id = source,
-                            namespace = namespace.namespace_str,
+                            target = str(target),
                             future = repr(future),
                         )
-                        # 只摘掉**自己**这一条：按 namespace / group_id 整键 pop，会把同一个
-                        # 群里别的监听者（例如旁听的长 Handler）一并抹掉，而它们的 Future
-                        # 还悬着 —— 那些 Handler 从此静默地再也收不到消息。
                         listener = cls.message_listener.pop(listener_id, None)
                         if listener is not None:
-                            for key in (namespace, namespace.group_id):
-                                if key is None:
-                                    continue
-                                listener_ids = cls.message_listener_map.get(key)
-                                if listener_ids is None:
-                                    continue
-                                listener_ids.discard(listener_id)
-                                if not listener_ids:
-                                    cls.message_listener_map.pop(key, None)
+                            cls.message_listener_map.pop(target, None)
                             # 与 report_message 抢锁时消息可能刚好先到；已投递就不再写异常，
                             # 也避免对已完成的 Future 调 set_exception。
                             if not listener.done():
@@ -685,6 +666,37 @@ class CommandCaller:
             )
 
         return listen_package
+
+    @classmethod
+    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+        """
+        Cancel the wait message listener.
+
+        :param listener_id: The listener id.
+        :return: Whether the cancel is successful.
+        """
+        async with cls.message_listener_lock:
+            logger.info(
+                "Cancel Wait Message Task {listener_id}",
+                listener_id = listener_id,
+            )
+            if listener_id in cls.message_listener:
+                listener = cls.message_listener.get(listener_id)
+                if listener is not None:
+                    listener.cancel()
+                    listener_map = cls.message_listener_map.get(listener.target)
+                    if listener_map is not None:
+                        listener_map.discard(listener_id)
+                        if not listener_map:
+                            cls.message_listener_map.pop(listener.target, None)
+                            
+                cls.message_listener.pop(listener_id, None)
+                logger.info(
+                    "Cancel listener: {listener_id}",
+                    listener_id = listener_id,
+                )
+                return True
+        return False
 
     @classmethod
     async def create_letters(cls, name: str) -> LettersPackage:
@@ -827,7 +839,7 @@ class CommandCaller:
         return status_package
 
     @classmethod
-    async def wait_status(cls, name: str, namespace: Namespace) -> None:
+    async def wait_status(cls, name: str) -> None:
         """
         Wait a status.
 
@@ -877,41 +889,21 @@ class CommandCaller:
             return not status_package.is_finished()
 
     @classmethod
-    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+    async def exists_status(cls, name: str) -> bool:
         """
-        Cancel the wait message listener.
+        Check whether a status exists.
 
-        :param listener_id: The listener id.
-        :return: Whether the cancel is successful.
+        :param name: The name of the status.
+        :return: Whether the status exists.
         """
-        async with cls.message_listener_lock:
-            logger.info(
-                "Cancel Wait Message Task {listener_id}",
-                listener_id = listener_id,
-            )
-            if listener_id in cls.message_listener:
-                listener = cls.message_listener.get(listener_id)
-                if listener is not None:
-                    listener.cancel()
-                    listener_map = cls.message_listener_map.get(listener.target)
-                    if listener_map is not None:
-                        listener_map.discard(listener_id)
-                        if not listener_map:
-                            cls.message_listener_map.pop(listener.target, None)
-                    if listener.target.group_id is not None:
-                        group_listener_map = cls.message_listener_map.get(listener.target.group_id)
-                        if group_listener_map is not None:
-                            group_listener_map.discard(listener_id)
-                            if not group_listener_map:
-                                cls.message_listener_map.pop(listener.target.group_id, None)
-                            
-                cls.message_listener.pop(listener_id, None)
-                logger.info(
-                    "Cancel listener: {listener_id}",
-                    listener_id = listener_id,
-                )
-                return True
-        return False
+        async with cls.status_lock:
+            status_id = cls.statuses_map.get(name)
+            if status_id is None:
+                return False
+            status_package = cls.statuses.get(status_id)
+            if status_package is None:
+                return False
+            return True
 
     @classmethod
     async def run_handle(
@@ -1821,7 +1813,7 @@ class CommandCaller:
     def _submit_message(
         cls,
         task_ids: set[uuid.UUID],
-        persona_info: PersonaInfo
+        persona_info: PersonaInfo,
     ) -> list[ListenerPackage]:
         listeners: list[ListenerPackage] = []
         for listener_id in task_ids:
@@ -1843,6 +1835,7 @@ class CommandCaller:
         :param persona_info: The `PersonaInfo` object of the message
         """
         namespace = persona_info.namespace
+        scene = persona_info.scene
         async with cls.message_listener_lock:
             listeners: list[ListenerPackage] = []
             if namespace in cls.message_listener_map:
@@ -1855,16 +1848,15 @@ class CommandCaller:
                         )
                     )
 
-            if persona_info.group_id is not None:
-                if persona_info.group_id in cls.message_listener_map:
-                    listener_ids = cls.message_listener_map.pop(persona_info.group_id, None)
-                    if listener_ids is not None:
-                        listeners.extend(
-                            cls._submit_message(
-                                task_ids = listener_ids,
-                                persona_info = persona_info
-                            )
+            if scene in cls.message_listener_map:
+                listener_ids = cls.message_listener_map.pop(scene, None)
+                if listener_ids is not None:
+                    listeners.extend(
+                        cls._submit_message(
+                            task_ids = listener_ids,
+                            persona_info = persona_info
                         )
+                    )
 
             for listener in listeners:
                 if not allow_block_propagation:
