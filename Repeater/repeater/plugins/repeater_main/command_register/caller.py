@@ -1023,7 +1023,7 @@ class CommandCaller:
 
         cls._identity.set(package)
         cls._task_id.set(task_id)
-        
+
         result = await cls._enter_handler(
             task_id,
             package,
@@ -1031,6 +1031,7 @@ class CommandCaller:
             send_msg,
             debug_mode,
         )
+
         if isinstance(result, type):
             if issubclass(result, SubCmdExit):
                 result = result()
@@ -1406,13 +1407,17 @@ class CommandCaller:
         :param package: CommandPackage
         :return: CommandPackage
         """
-        return cls._register(package)
+        return cls._register(
+            package,
+            args = (),
+            kwargs = {}
+        )
 
     @classmethod
     def register_with_args(
         cls,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Callable[[Type[CommandPackage[T_Handler_Result]]], type[CommandPackage[T_Handler_Result]]]:
         """
         Register a command with args
@@ -1432,21 +1437,71 @@ class CommandCaller:
             :return: CommandPackage
             """
             nonlocal args, kwargs
-            return cls._register(package, *args, **kwargs)
+            return cls._register(
+                package,
+                args = args,
+                kwargs = kwargs
+            )
         return _decorator
     
     @classmethod
-    def _register(cls, package: Type[CommandPackage[T_Handler_Result]], *args: Any, **kwargs: Any) -> Type[CommandPackage[T_Handler_Result]]:
+    def register_with_all_init_args(
+        cls,
+        *args,
+        **kwargs,
+    ) -> Callable[[Type[CommandPackage[T_Handler_Result]]], type[CommandPackage[T_Handler_Result]]]:
+        """
+        Register a command with all init args
+
+        :param args: args
+        :param kwargs: kwargs
+        :return: a decorator that registers a command with args
+        """
+        def _decorator(package: Type[CommandPackage[T_Handler_Result]]) -> Type[CommandPackage[T_Handler_Result]]:
+            """
+            Register a command with args
+
+            WARNING: This is a decorator, so if you get this function, pass a command class into it.
+            It will pass the data to the registry through the closure.
+
+            :param package: CommandPackage
+            :return: CommandPackage
+            """
+            nonlocal args, kwargs
+            return cls._register(
+                package,
+                args = args,
+                kwargs = kwargs,
+                init_only = False
+            )
+        return _decorator
+    
+    @classmethod
+    def _register(
+        cls,
+        package: Type[CommandPackage[T_Handler_Result]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        init_only: bool = True
+    ) -> Type[CommandPackage[T_Handler_Result]]:
         """
         Register a command
 
         :param package: CommandPackage Type
+        :param args: args
+        :param kwargs: kwargs
+        :param init_only: if True, only init args are used
         :return: CommandPackage Type
         """
         if package.enabled:
             register_start_time = time.perf_counter_ns()
             try:
-                package_instance, matcher, handler = cls._make_pack(package, *args, **kwargs)
+                package_instance, matcher, handler = cls._make_pack(
+                    package,
+                    args = args,
+                    kwargs = kwargs,
+                    init_only = init_only
+                )
             except Exception as e:
                 package.on_reg_failed(*sys.exc_info())
                 raise # Make sure the follow-up will not be carried out.
@@ -1457,7 +1512,10 @@ class CommandCaller:
                 matcher = matcher,
                 handler = handler
             )
-            package_instance.__post_init__()
+            if init_only:
+                package_instance.__post_init__()
+            else:
+                package_instance.__post_init__(*args, **kwargs)
             package_instance.__time_for_registered__ = time.time_ns()
             register_end_time = time.perf_counter_ns()
             package_instance.__time_for_registered_monotonic__ = register_end_time
@@ -1473,8 +1531,9 @@ class CommandCaller:
     def _make_pack(
         cls,
         package: Type[CommandPackage[T_Handler_Result]],
-        *args: Any,
-        **kwargs: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        init_only: bool = True
     )  -> tuple[
         CommandPackage[T_Handler_Result], # package_instance
         type[Matcher], # matcher
@@ -1497,16 +1556,20 @@ class CommandCaller:
         :param package: Package class
         :param args: Package class initialization parameters
         :param kwargs: Package class initialization parameters
+        :param init_only: if True, only init args are used
         :return: package_instance, matcher, handler
         """
         package.on_before_instantiate()
 
         if package.__raw_new__ is None:
             package_raw_new = package.__new__
-            def package_new(cls: Type[CommandPackage[T_Handler_Result]], *args: Any, **kwargs: Any):
-                nonlocal package_raw_new
-                package_instance = package_raw_new(cls, *args, **kwargs)
-                package_instance.__pre_init__()
+            def package_new(cls: Type[CommandPackage[T_Handler_Result]], *new_args: Any, **new_kwargs: Any):
+                nonlocal package_raw_new, args, kwargs, init_only
+                package_instance = package_raw_new(cls, *new_args, **new_kwargs)
+                if init_only:
+                    package_instance.__pre_init__()
+                else:
+                    package_instance.__pre_init__(*args, **kwargs)
                 return package_instance
             package.__new__ = package_new
             package.__raw_new__ = package_raw_new
