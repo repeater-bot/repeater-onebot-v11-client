@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from ...client_configs import storage_configs
 from .message_source import MessageSource
 
-pattern = re.compile(r"^Scene_(?P<mode>group|private)_(?P<id>[0-9]+)$")
+pattern = re.compile(r"^Scene_(?P<mode>group|private)(?P<id_group>_(?P<id>[0-9]+))?$")
 
 class Scene(BaseModel):
     """
@@ -34,14 +34,17 @@ class Scene(BaseModel):
         if match_result is not None:
             return cls(
                 source = MessageSource(value=match_result.group("mode")),
-                id = match_result.group("id")
+                id = match_result.group("id") if match_result.group("id_group") is not None else None
             )
 
         raise ValueError(f"Invalid namespace string: {string}")
 
     @property
     def _scene(self) -> str:
-        return f"Scene_{self.source}_{self.id}"
+        if self.id is None:
+            return f"Scene_{self.source.value}"
+        else:
+            return f"Scene_{self.source.value}_{self.id}"
 
     @staticmethod
     def _hash_str(string: str) -> str:
