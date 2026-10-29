@@ -23,7 +23,7 @@ from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
 from ..network import HTTPCode
 from ..persona_info import PersonaInfo, EnterType
-from ..namespace import MessageSource
+from ..scene import Scene, MessageSource
 from ..text_render.text_render import TextRender
 from ..response.response import Response
 from ..chattts import ChatTTSAPI
@@ -184,8 +184,7 @@ class SendMsg:
             reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
-            target_group: str | None = None,
-            target_user: str | None = None,
+            target: Scene | None = None,
             send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER,
             send_hook: SEND_HOOK | None = None,
             render_hook: RENDER_HOOK | None = None,
@@ -200,8 +199,7 @@ class SendMsg:
             reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
-            target_group: str | None = None,
-            target_user: str | None = None,
+            target: Scene | None = None,
             send_target: SendingTarget = SendingTarget.AUTO,
             send_hook: SEND_HOOK | None = None,
             render_hook: RENDER_HOOK | None = None,
@@ -215,8 +213,7 @@ class SendMsg:
             reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
-            target_group: str | None = None,
-            target_user: str | None = None,
+            target: Scene | None = None,
             send_target: SendingTarget = SendingTarget.AUTO,
             send_hook: SEND_HOOK | None = None,
             render_hook: RENDER_HOOK | None = None,
@@ -228,8 +225,7 @@ class SendMsg:
         self._suffix: Message = suffix or Message()
         self._chat_tts_api = ChatTTSAPI()
         self._matcher: Type[Matcher] | None = matcher
-        self._target_group: str | None = target_group
-        self._target_user: str | None = target_user
+        self._target: Scene | None = target
         self._send_hook: SEND_HOOK | None = send_hook
         self._render_hook: RENDER_HOOK | None = render_hook
         
@@ -253,8 +249,7 @@ class SendMsg:
             ("reply", self._reply),
             ("prefix", self._prefix),
             ("suffix", self._suffix),
-            ("target_group", self._target_group),
-            ("target_user", self._target_user),
+            ("target", self._target),
             ("sending_target", self._sending_target),
             ("send_hook", self._send_hook),
             ("render_hook", self._render_hook),
@@ -269,8 +264,7 @@ class SendMsg:
             reply: MessageSegment | None | NoGive = nogive,
             prefix: Message | None | NoGive = nogive,
             suffix: Message | None | NoGive = nogive,
-            target_group: str | None | NoGive = nogive,
-            target_user: str | None | NoGive = nogive,
+            target: Scene | None | NoGive = nogive,
             send_target: SendingTarget | NoGive = nogive,
             send_hook: SEND_HOOK | None | NoGive = nogive,
             render_hook: RENDER_HOOK | None | NoGive = nogive,
@@ -282,8 +276,7 @@ class SendMsg:
         prefix = prefix if not is_no_give(prefix) else self._prefix
         suffix = suffix if not is_no_give(suffix) else self._suffix
         send_target = send_target if not is_no_give(send_target) else self._sending_target
-        target_group = target_group if not is_no_give(target_group) else self._target_group
-        target_user = target_user if not is_no_give(target_user) else self._target_user
+        target = target if not is_no_give(target) else self._target
         send_hook = send_hook if not is_no_give(send_hook) else self._send_hook
         render_hook = render_hook if not is_no_give(render_hook) else self._render_hook
 
@@ -294,8 +287,7 @@ class SendMsg:
             reply = reply,
             prefix = prefix,
             suffix = suffix,
-            target_group = target_group,
-            target_user = target_user,
+            target = target,
             send_target = send_target,
             send_hook = send_hook,
             render_hook = render_hook
@@ -466,18 +458,11 @@ class SendMsg:
         return self._suffix.copy()
 
     @property
-    def target_group(self) -> str | None:
+    def target(self) -> Scene | None:
         """
-        当前消息的目标群号
+        指定的发送目标
         """
-        return self._target_group
-
-    @property
-    def target_user(self) -> str | None:
-        """
-        当前消息的目标用户号
-        """
-        return self._target_user
+        return self._target
 
     @property
     def send_hook(self) -> SEND_HOOK | None:
@@ -2443,20 +2428,26 @@ class SendMsg:
                 message
             )
         bot = self._persona_info.cached_api
-        if self._target_user is not None:
-            await bot.send_private_msg(
-                user_id = int(self._target_user),
-                message = message,
-                *args,
-                **kwargs
-            )
-        elif self._target_group is not None:
-            await bot.send_group_msg(
-                group_id = int(self._target_group),
-                message = message,
-                *args,
-                **kwargs
-            )
+        if self._target is not None:
+            if self._target.id is None:
+                raise ValueError(
+                    "Set target, but no target id provided."
+                )
+            
+            if self._target.is_private:
+                await bot.send_private_msg(
+                    user_id = int(self._target.id),
+                    message = message,
+                    *args,
+                    **kwargs
+                )
+            elif self._target.is_group:
+                await bot.send_group_msg(
+                    group_id = int(self._target.id),
+                    message = message,
+                    *args,
+                    **kwargs
+                )
         elif self._persona_info.source == MessageSource.GROUP and self._persona_info.group_id is not None:
             await bot.send_group_msg(
                 group_id = int(self._persona_info.group_id),
