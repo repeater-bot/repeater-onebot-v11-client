@@ -5,7 +5,8 @@ from pydantic import BaseModel, ConfigDict
 from ...client_configs import storage_configs
 from .message_source import MessageSource
 
-pattern = re.compile(r"^Scene_(?P<mode>group|private)(?P<id_group>_(?P<id>[0-9]+))?$")
+pattern = re.compile(r"^Scene_(?P<mode>group|private)_(?P<id>[0-9]+)?$")
+no_id_pattern = re.compile(r"^Scene_(?P<mode>group|private)$")
 
 class Scene(BaseModel):
     """
@@ -34,7 +35,14 @@ class Scene(BaseModel):
         if match_result is not None:
             return cls(
                 source = MessageSource(value=match_result.group("mode")),
-                id = match_result.group("id") if match_result.group("id_group") is not None else None
+                id = match_result.group("id")
+            )
+
+        match_result = no_id_pattern.match(string)
+        if match_result is not None:
+            return cls(
+                source = MessageSource(value=match_result.group("mode")),
+                id = None
             )
 
         raise ValueError(f"Invalid namespace string: {string}")
