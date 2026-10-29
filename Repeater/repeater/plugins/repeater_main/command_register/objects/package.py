@@ -216,9 +216,12 @@ class CommandPackage(ABC, Generic[T]):
 
     async def message_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
-        When you register a Message Handler, the Repeater will call this section before starting to get the abstraction layer object.
-        
-        You can intercept and do whatever you want here.
+        Called by the message-matcher wrapper (CommandCaller.get_message_handler) before a run
+        starts, for every message this package matches.
+
+        The default implementation builds PersonaInfo.from_message plus a SendMsg bound to this
+        package and the matcher. The pair returned here is what the run executes with, so
+        overriding it changes both the abstraction layer and where replies are sent.
 
         :param task_id: Task ID
         :param bot: Bot object
@@ -241,9 +244,12 @@ class CommandPackage(ABC, Generic[T]):
 
     async def command_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message, matcher: Type[Matcher]) -> tuple[PersonaInfo, SendMsg]:
         """
-        When you register a Command Handler, the Repeater will call this section before starting to get the abstraction layer object.
-        
-        You can intercept and do whatever you want here.
+        Called by the command-matcher wrapper (CommandCaller.get_command_handler) before a run
+        starts, for every message that matches this package's command.
+
+        The default implementation builds PersonaInfo.from_command (enter type Command) plus a
+        SendMsg bound to this package and the matcher. The returned pair is what the run executes
+        with, so overriding it changes both the abstraction layer and where replies are sent.
 
         :param task_id: Task ID
         :param bot: Bot object
@@ -268,15 +274,18 @@ class CommandPackage(ABC, Generic[T]):
 
     async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None, output: bool = True) -> tuple[PersonaInfo, SendMsg]:
         """
-        When you register an External Handler, the Repeater will call this section before starting to get the abstraction layer object.
-        
-        You can intercept and do whatever you want here.
+        Called by CommandCaller.external_enter for the External Trigger HTTP entry, before a run
+        starts; this package has no matcher on that path.
+
+        The default implementation builds PersonaInfo.from_external plus a SendMsg whose matcher
+        is None; when output is False the sending target is set to BUFFER, so messages are queued
+        instead of sent. The returned pair is what the run executes with.
 
         :param task_id: Task ID
         :param bot: Bot object
         :param event: MessageEvent object
         :param args: Message object
-        :param output: Whether to output the result.
+        :param output: Whether to send the result; False routes messages to the buffer instead
         :return: PersonaInfo object, SendMsg object
         """
         persona_info = PersonaInfo.from_external(
@@ -303,7 +312,7 @@ class CommandPackage(ABC, Generic[T]):
         The default implementation returns a copy of persona_info with enter_type Horizontal and
         the new task id, creating a SendMsg only when send_msg is None - a passed one is returned
         unchanged.
-        
+
         :param persona_info: PersonaInfo object of the calling Handler
         :param send_msg: SendMsg object of the calling Handler, None means "create one"
         :param task_id: Task ID assigned to the horizontal call
@@ -619,10 +628,12 @@ class CommandPackage(ABC, Generic[T]):
 
     def on_matcher_registered(self, matcher: Type[Matcher]) -> Type[Matcher]:
         """
-        Never invoked by the framework: there is no call site for this hook, so the matcher
-        created during registration is used as is.
-        The default implementation returns matcher unchanged and the value is ignored.
-        
+        Never invoked by the current framework: there is no call site for this hook, so the
+        matcher created during registration is used as is.
+
+        The default implementation returns matcher unchanged; the return value is ignored
+        anyway.
+
         :param matcher: The matcher that has been registered.
         """
         return matcher
