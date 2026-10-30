@@ -5,7 +5,7 @@ from ...command_register import CommandCaller
 from .._bases import BaseChat
 
 @CommandCaller.register
-class ChatKeepReasoning(BaseChat):
+class KeepReasoning(BaseChat):
     cmd = "keepReasoning"
     aliases = {
         "kr",
