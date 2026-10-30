@@ -961,9 +961,7 @@ class PersonaInfo:
         消息中提及的 user_id 列表（不包括自己）
         """
         at_list: list[str] = []
-        if self._message_event is None:
-            return at_list
-        for segment in self._message_event.message:
+        for segment in self.message:
             if segment.type == "at":
                 mentioned_id = segment.data["qq"]
                 # 检查是否@的是非机器人用户
@@ -977,9 +975,7 @@ class PersonaInfo:
         消息中提及的 user_id 列表
         """
         at_list: list[str] = []
-        if self._message_event is None:
-            return at_list
-        for segment in self._message_event.message:
+        for segment in self.message:
             if segment.type == "at":
                 at_list.append(segment.data["qq"])
         return at_list
