@@ -453,21 +453,25 @@ class PersonaInfo:
             ) for event in messages
         ]
     
-    async def from_reply(self) -> PersonaInfo | None:
+    async def from_reply(self, msg_id: str | None = None) -> PersonaInfo | None:
         """
         从回复引用构建 PersonaInfo 实例
 
         注：解析时，它会默认消息段中只有一个 reply 消息段，
         如果有存在多个，则使用第一个
         """
-        event = await self.get_message_event()
-        reply_id: str | None = None
-        for message in event.message:
-            if message.type == "reply":
-                reply_id = message.data["id"]
-                break
-        if reply_id is None:
-            return None
+        if msg_id is None:
+            event = await self.get_message_event()
+            reply_id: str | None = None
+            for message in event.message:
+                if message.type == "reply":
+                    reply_id = message.data["id"]
+                    break
+            if reply_id is None:
+                return None
+        else:
+            reply_id = msg_id
+        
         reply_event = await self.get_message_event(message_id = int(reply_id))
         persona_info = self.__class__(
             bot = self.bot,
@@ -552,6 +556,41 @@ class PersonaInfo:
         当前消息是否为私聊消息
         """
         return self.source == MessageSource.PRIVATE
+
+    async def is_tome(self) -> bool:
+        """
+        当前消息是否为 @ 本 bot 的消息
+        """
+        for message in self.message:
+            if message.type == "at" and message.data["qq"] == self.self_id:
+                return True
+            if message.type == "reply":
+                reply_msg = await self.get_message_event(
+                    message_id = message.data["id"]
+                )
+                if reply_msg is None:
+                    continue
+
+                if reply_msg.user_id == self.self_id:
+                    return True
+        return False
+
+    @property
+    def tome(self) -> bool:
+        """
+        检查当前消息事件中是否包含 @ 本 bot
+        """
+        return self.event.is_tome()
+
+    @property
+    def has_at_self(self) -> bool:
+        """
+        当前消息是否包含 @ 本 bot
+        """
+        for message in self.message:
+            if message.type == "at" and message.data["qq"] == self.self_id:
+                return True
+        return False
     
     @property
     def self_id(self) -> str:
