@@ -24,6 +24,7 @@ from typing import (
     TypeVar,
     Union,
     NoReturn,
+    Hashable,
     Generator
 )
 from nonebot import on_command, on_message
@@ -84,20 +85,20 @@ class CommandCaller:
     # PS：信件是一种命令对命令的通信通道
     # 通过提交命名信件与监听命名信件来实现通信并传递数据
     letters_listener: dict[uuid.UUID, LettersPackage[Any]] = {}
-    letters_listener_map: dict[str, uuid.UUID] = {}
+    letters_listener_map: dict[Hashable, uuid.UUID] = {}
     letters_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 管道系统
     # 通过管道实现命令对命令的全双工通信
     pipes: dict[uuid.UUID, PipePackage[Any, Any]] = {}
-    pipe_map: dict[str, uuid.UUID] = {}
+    pipe_map: dict[Hashable, uuid.UUID] = {}
     pipe_lock: asyncio.Lock = asyncio.Lock()
 
     # 状态系统
     # 通过状态实现命令对命令的事件通信
     # 与信件类似但不可传递数据，只能传递状态
     statuses: dict[uuid.UUID, StatusPackage] = {}
-    statuses_map: dict[str, uuid.UUID] = {}
+    statuses_map: dict[Hashable, uuid.UUID] = {}
     status_lock: asyncio.Lock = asyncio.Lock()
 
     # 外部触发器服务器循环挂载位置
@@ -699,7 +700,7 @@ class CommandCaller:
         return False
 
     @classmethod
-    async def create_letters(cls, name: str) -> LettersPackage:
+    async def create_letters(cls, name: Hashable) -> LettersPackage:
         """
         Create a letters package.
 
@@ -727,7 +728,7 @@ class CommandCaller:
         return letters_package
 
     @classmethod
-    async def exists_letters(cls, name: str) -> bool:
+    async def exists_letters(cls, name: Hashable) -> bool:
         """
         Check whether the letters package exists.
 
@@ -741,7 +742,7 @@ class CommandCaller:
             return cls.letters_listener.get(letter_id) is not None
 
     @classmethod
-    async def submit_letters(cls, name: str, value: Any) -> bool:
+    async def submit_letters(cls, name: Hashable, value: Any) -> bool:
         """
         Submit a letters.
 
@@ -761,7 +762,7 @@ class CommandCaller:
             return False
 
     @classmethod
-    async def open_pipe(cls, name: str) -> PipePackage[Any, Any]:
+    async def open_pipe(cls, name: Hashable) -> PipePackage[Any, Any]:
         """
         Open a pipe package.
 
@@ -800,7 +801,7 @@ class CommandCaller:
         return pipe_package
 
     @classmethod
-    async def exists_pipe(cls, name: str) -> bool:
+    async def exists_pipe(cls, name: Hashable) -> bool:
         """
         Check whether the pipe package exists.
 
@@ -814,7 +815,7 @@ class CommandCaller:
             return cls.pipes.get(pipe_id) is not None
 
     @classmethod
-    async def close_pipe(cls, name: str) -> bool:
+    async def close_pipe(cls, name: Hashable) -> bool:
         """
         Close a pipe package.
 
@@ -840,7 +841,7 @@ class CommandCaller:
             return False
 
     @classmethod
-    async def create_status(cls, name: str) -> StatusPackage:
+    async def create_status(cls, name: Hashable) -> StatusPackage:
         """
         Create a status package.
 
@@ -857,7 +858,8 @@ class CommandCaller:
         status_package = StatusPackage(
             future = future,
             status_id = status_id,
-            sponsor = sponsor
+            sponsor = sponsor,
+            name = name,
         )
 
         async with cls.status_lock:
@@ -867,7 +869,7 @@ class CommandCaller:
         return status_package
 
     @classmethod
-    async def wait_status(cls, name: str) -> None:
+    async def wait_status(cls, name: Hashable) -> None:
         """
         Wait a status.
 
@@ -882,7 +884,7 @@ class CommandCaller:
         await status_package.wait_finish()
     
     @classmethod
-    async def finish_status(cls, name: str) -> bool:
+    async def finish_status(cls, name: Hashable) -> bool:
         """
         Finish a status.
 
@@ -900,7 +902,7 @@ class CommandCaller:
             return True
 
     @classmethod
-    async def check_status(cls, name: str) -> bool:
+    async def check_status(cls, name: Hashable) -> bool:
         """
         Check a status.
 
@@ -917,7 +919,7 @@ class CommandCaller:
             return not status_package.is_finished()
 
     @classmethod
-    async def exists_status(cls, name: str) -> bool:
+    async def exists_status(cls, name: Hashable) -> bool:
         """
         Check whether a status exists.
 

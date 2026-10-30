@@ -1,6 +1,7 @@
 import uuid
 import asyncio
 from dataclasses import dataclass
+from typing import Hashable
 
 @dataclass
 class StatusPackage:
@@ -16,6 +17,9 @@ class StatusPackage:
 
     sponsor: uuid.UUID
     """Task id of the task that created the state."""
+
+    name: Hashable
+    """Status name."""
 
     def is_finished(self) -> bool:
         """

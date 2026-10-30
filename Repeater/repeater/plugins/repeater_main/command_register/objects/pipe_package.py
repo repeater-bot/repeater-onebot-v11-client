@@ -4,6 +4,7 @@ import asyncio
 from typing import (
     Generic,
     AsyncGenerator,
+    Hashable,
     TypeVar
 )
 from ..exceptions import PipeCloseException
@@ -26,7 +27,7 @@ class PipePackage(Generic[T_UPSTREAM, T_DOWNSTREAM]):
     downstream: asyncio.Future[asyncio.Queue[T_DOWNSTREAM]]
     """Downstream queue."""
 
-    name: str
+    name: Hashable
     """Package name."""
     sponsor: uuid.UUID
     """Sponsor task_id."""
