@@ -11,6 +11,7 @@ from ..assist import (
     Scene,
     Namespace,
     Variables,
+    format_time_duration_ns
 )
 from ..cmd_info import CmdTypes
 from ..client_configs import storage_configs
@@ -1026,6 +1027,7 @@ class CommandCaller:
         cls._identity.set(package)
         cls._task_id.set(task_id)
 
+        start_time = time.perf_counter_ns()
         result = await cls._enter_handler(
             task_id,
             package,
@@ -1033,6 +1035,7 @@ class CommandCaller:
             send_msg,
             debug_mode,
         )
+        end_time = time.perf_counter_ns()
 
         if isinstance(result, type):
             if issubclass(result, SubCmdExit):
@@ -1043,10 +1046,11 @@ class CommandCaller:
         else:
             result_code = 0
         
-        logger.info(
-            "Handler {handler}[{task_id}] result: {result}({type}), return code: {code}, debug: {debug_mode}",
+        logger.success(
+            "Handler {handler}[{task_id}] time: {time}, result: {result}({type}), return code: {code}, debug: {debug_mode}",
             handler = package.component,
             task_id = task_id,
+            time = f"{(end_time - start_time) / 1e6}ms({format_time_duration_ns(end_time - start_time, use_abbreviation=True)})",
             result = repr(result),
             code = result_code,
             type = type(result).__name__,
