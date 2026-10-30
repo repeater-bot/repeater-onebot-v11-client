@@ -16,7 +16,7 @@ class SlotFiller(CommandPackage):
         "sfl",
         "SFL",
         "slot_filler",
-        "Slot_Filler"
+        "Slot_Filler",
         "SlotFiller",
         "SLOT_FILLER"
     }

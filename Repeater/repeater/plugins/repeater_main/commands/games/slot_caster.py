@@ -16,7 +16,7 @@ class SlotCaster(CommandPackage):
         "sct",
         "SCT",
         "slot_caster",
-        "Slot_Caster"
+        "Slot_Caster",
         "SlotCaster",
         "SLOT_CASTER"
     }

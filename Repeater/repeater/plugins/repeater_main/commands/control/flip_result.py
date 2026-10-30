@@ -8,7 +8,7 @@ from ...command_register import(
 from ._peel_command import peel_command
 
 @CommandCaller.register
-class ReverseResult(CommandPackage):
+class FlipResult(CommandPackage):
     cmd = "flipResult"
     aliases = {
         "fr",
