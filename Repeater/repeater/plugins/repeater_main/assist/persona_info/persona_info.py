@@ -134,9 +134,6 @@ class PersonaInfo:
                 self._group_name = str(model_dump["group_name"])
             except KeyError:
                 self._group_name = None
-        
-        self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
-        self._user_config_loader = UserConfigLoader(self.namespace)
 
         self._namespace: Namespace
         if self._source == MessageSource.GROUP:
@@ -162,6 +159,9 @@ class PersonaInfo:
                 source = MessageSource.PRIVATE,
                 id = self.user_id
             )
+        
+        self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
+        self._user_config_loader = UserConfigLoader(self._namespace)
 
     def __repr__(self) -> str:
         args_map:  list[tuple[str, Any]] = [
