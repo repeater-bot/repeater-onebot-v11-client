@@ -267,9 +267,9 @@ class ChatSendMsg(SendMsg):
 
         logger.info(
             "Chat Output Mode: {reasoning}/{tool}/{content}",
-            reasoning = output_reasoning_content_mode,
-            tool = output_tool_call_mode,
-            content = output_content_mode
+            reasoning = output_reasoning_content_final_mode,
+            tool = output_tool_call_final_mode,
+            content = output_content_final_mode
         )
 
         message = await self.parse_response(

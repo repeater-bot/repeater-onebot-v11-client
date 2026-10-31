@@ -292,7 +292,7 @@ class PersonaInfo:
             value = args,
             get_new_value_deep = lambda: copy.deepcopy(self._args) if self._args is not None else None,
             get_new_value_copy = lambda: self._args.copy() if self._args is not None else None,
-            get_new_value = lambda: self.args,
+            get_new_value = lambda: self._args,
             copydata = copydata,
             deepcopy = deepcopy
         )
@@ -338,7 +338,6 @@ class PersonaInfo:
             copydata = copydata,
             deepcopy = deepcopy
         )
-        instance._enter_type = self._enter_type
         return instance
 
     async def from_reversed_reply_chain(
@@ -395,7 +394,7 @@ class PersonaInfo:
         async for event in self.get_reply_chain(max_depth):
             instance = self.copy(
                 event = event,
-                args = None,
+                args = event.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             )
@@ -447,7 +446,7 @@ class PersonaInfo:
             self.copy(
                 bot = self.bot,
                 event = event,
-                args = None,
+                args = event.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             ) for event in messages
@@ -473,9 +472,10 @@ class PersonaInfo:
             reply_id = msg_id
         
         reply_event = await self.get_message_event(message_id = int(reply_id))
-        persona_info = self.__class__(
+        persona_info = self.copy(
             bot = self.bot,
-            event = reply_event
+            event = reply_event,
+            args = reply_event.message,
         )
         return persona_info
 
@@ -496,11 +496,30 @@ class PersonaInfo:
         async for history in iter_message_history(self.cached_api, self.namespace, iter_step):
             instance = self.copy(
                 event = history,
-                args = None,
+                args = history.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             )
             yield instance
+
+    async def from_forward_msgs(
+        self,
+    ) -> list[list[PersonaInfo]]:
+        """
+        从转发消息获取 PersonaInfo
+
+        :return: PersonaInfo 列表
+        """
+        return [
+            [
+                self.copy(
+                    event = msg,
+                    args = msg.message
+                )
+                for msg in msgs
+            ]
+            for msgs in await self.get_forward_msgs()
+        ]
     
     @property
     def enter_type(self) -> EnterType:
@@ -1042,6 +1061,18 @@ class PersonaInfo:
             if msg.type == "record":
                 urls.append(msg.data["url"])
         return urls
+
+    def get_forward_ids(self) -> list[str]:
+        """
+        获取消息内的转发消息段
+
+        :return: 转发消息的 ID 列表
+        """
+        urls: list[str] = []
+        for msg in self.message:
+            if msg.type == "forward":
+                urls.append(msg.data["id"])
+        return urls
     
     def get_file_infos(self) -> list[FileInfo]:
         """
@@ -1109,16 +1140,20 @@ class PersonaInfo:
             message if message is not None else self.message
         )
     
-    async def get_forward_msgs(self) -> list[MessageEvent]:
+    async def get_forward_msgs(self) -> list[list[MessageEvent]]:
         """
         获取转发消息
 
         :return: 转发消息
         """
-        return await get_forward_msgs(
-            self._cached_api,
-            self.message
-        )
+        forward_msgs: list[list[MessageEvent]] = []
+        for forward_msg_id in self.get_forward_ids():
+            forward_msg = await get_forward_msgs(
+                self._cached_api,
+                forward_msg_id
+            )
+            forward_msgs.append(forward_msg)
+        return forward_msgs
     
     @staticmethod
     def generates_text_from_messages_list(messages: Iterable[dict | MessageEvent]) -> str:

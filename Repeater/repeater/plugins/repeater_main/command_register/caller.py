@@ -450,6 +450,19 @@ class CommandCaller:
             return cls.runnings.get(task_id)
 
     @classmethod
+    async def get_global_running(cls, task_id: uuid.UUID) -> RunningPackage | None:
+        """
+        Get running task.
+
+        :param task_id: task id
+        :return: running task
+        """
+        async with cls.running_lock:
+            if task_id not in cls.runnings:
+                return None
+            return cls.runnings.get(task_id)
+        
+    @classmethod
     async def another_running(cls, namespace: Namespace | None = None) -> set[uuid.UUID]:
         """
         Gets other tasks (not including itself) of the same type as this command that are running
@@ -464,9 +477,27 @@ class CommandCaller:
         async with cls.running_lock:
             runnings = cls.running_packages.get(type(identity), set())
             if namespace is not None:
-                runnings = runnings.intersection(cls.running_map.get(namespace, set()))
-            runnings.discard(task_id)
-            return runnings
+                output_runnings = runnings.intersection(cls.running_map.get(namespace, set()))
+            else:
+                output_runnings = runnings.copy()
+            output_runnings.discard(task_id)
+            return output_runnings
+
+    @classmethod
+    async def all_this_running(cls, package: Type[CommandPackage[Any]], namespace: Namespace | None = None) -> set[uuid.UUID]:
+        """
+        Gets all tasks of the same type as this command that are running
+
+        :param package: package
+        :return: set of running tasks
+        """
+        async with cls.running_lock:
+            runnings = cls.running_packages.get(package, set())
+            if namespace is not None:
+                output_runnings = runnings.intersection(cls.running_map.get(namespace, set()))
+            else:
+                output_runnings = runnings.copy()
+            return output_runnings
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
@@ -943,6 +974,10 @@ class CommandCaller:
         debug_mode: bool | None = None,
         created: asyncio.Future[RunningPackage[T_Handler_Result]] | None = None
     ) -> T_Handler_Result | Any | SubCmdBreaked | None | NoReturn:
+        # package 在 matcher 路径上是类、在 horizontal 路径上是实例。运行池的 key
+        # 统一取类：否则 type(类) 会退化成元类 type，所有命令共用同一个桶，
+        # all_this_running(package) 就查不到 matcher 路径产生的任务。
+        package_key: Type[CommandPackage[Any]] = package if isinstance(package, type) else type(package)
         try:
             task = asyncio.create_task(
                 cls.enter_handler(
@@ -971,7 +1006,7 @@ class CommandCaller:
                     set()
                 ).add(task_id)
                 cls.running_packages.setdefault(
-                    type(package),
+                    package_key,
                     set()
                 ).add(task_id)
         except Exception as e:
@@ -993,11 +1028,11 @@ class CommandCaller:
                     user_running.discard(task_id)
                     if not user_running:
                         cls.running_map.pop(persona_info.namespace, None)
-                if type(package) in cls.running_packages:
-                    package_running = cls.running_packages[type(package)]
+                if package_key in cls.running_packages:
+                    package_running = cls.running_packages[package_key]
                     package_running.discard(task_id)
                     if not package_running:
-                        cls.running_packages.pop(type(package), None)
+                        cls.running_packages.pop(package_key, None)
     
     @classmethod
     async def enter_handler(

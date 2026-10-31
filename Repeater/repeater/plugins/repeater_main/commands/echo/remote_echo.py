@@ -4,7 +4,13 @@ from ...command_register import(
     CommandPackage
 )
 from ...cmd_info import CmdTypes
-from ...assist import PersonaInfo, SendMsg, SendingTarget
+from ...assist import (
+    PersonaInfo,
+    SendMsg,
+    Scene,
+    MessageSource,
+    SendingTarget
+)
 
 @CommandCaller.register
 class RemoteEcho(CommandPackage):
@@ -34,6 +40,7 @@ class RemoteEcho(CommandPackage):
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         match = self.pattern.match(str(persona_info.message))
         if match:
+            # 处理输入
             mode = match.group("mode")
             id = match.group("id")
             message_str = match.group("message")
@@ -41,12 +48,18 @@ class RemoteEcho(CommandPackage):
             match mode:
                 case "group":
                     remote_send_msg = send_msg.copy(
-                        target_group = id,
+                        target = Scene(
+                            source = MessageSource.GROUP,
+                            id = id,
+                        ),
                         send_target = SendingTarget.API,
                     )
                 case "private":
                     remote_send_msg = send_msg.copy(
-                        target_user = id,
+                        target = Scene(
+                            source = MessageSource.PRIVATE,
+                            id = id,
+                        ),
                         send_target = SendingTarget.API,
                     )
                 case _:
