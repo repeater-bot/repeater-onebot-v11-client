@@ -1,30 +1,20 @@
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from nonebot.adapters.onebot.v11 import Message
-from ...assist import Namespace
-from .router import root_router
+from .....assist import Namespace
+from ...router import root_router
 from .request import ExternalTriggerRequest
 from .response import ExternalTriggerResponse
-from .register import register_external_trigger
-from .make_message_event import make_message_event
-from .config import external_trigger_config
+from ...register import register_external_trigger
+from ...make_message_event import make_message_event
+from ...config import external_trigger_config
 
 @root_router.post("/call")
 async def external_trigger_call(
-    request: ExternalTriggerRequest,
-    fastapi_request: Request
+    request: ExternalTriggerRequest
 ):
     """
     External trigger call endpoint
     """
-    # TODO: Enable this feature later.
-    # token = fastapi_request.headers.get("Authorization")
-    # if not token:
-    #     raise HTTPException(status_code=401, detail="No authorization token")
-    # elif not token.startswith("Bearer "):
-    #     raise HTTPException(status_code=401, detail="Invalid bearer format")
-    # elif token.removeprefix("Bearer ") != external_trigger_config.external_trigger_token:
-    #     raise HTTPException(status_code=401, detail="Invalid authorization token")
-    
     error: BaseException | None = None
     results: list[Message] = []
     rendered_texts: list[str] = []

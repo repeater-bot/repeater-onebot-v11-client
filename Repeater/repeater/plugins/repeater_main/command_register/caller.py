@@ -45,7 +45,7 @@ from .objects import (
     PipePackage,
     StatusPackage,
 )
-from .external_trigger import register_external_trigger, et_server, HandlerResult
+from .external_trigger import register_external_trigger, et_server, ETCHandlerResult
 from contextvars import ContextVar
 
 T_Handler_Result = TypeVar("T_Handler_Result")
@@ -222,7 +222,7 @@ class CommandCaller:
                 event: MessageEvent,
                 args: Message | None,
                 output: bool = True
-            ) -> HandlerResult:
+            ) -> ETCHandlerResult:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
@@ -239,7 +239,7 @@ class CommandCaller:
             if isinstance(result, SubCmdExit):
                 retcode = result.code
 
-            return HandlerResult(
+            return ETCHandlerResult(
                 messages,
                 rendered_texts,
                 retcode
@@ -974,10 +974,7 @@ class CommandCaller:
         debug_mode: bool | None = None,
         created: asyncio.Future[RunningPackage[T_Handler_Result]] | None = None
     ) -> T_Handler_Result | Any | SubCmdBreaked | None | NoReturn:
-        # package 在 matcher 路径上是类、在 horizontal 路径上是实例。运行池的 key
-        # 统一取类：否则 type(类) 会退化成元类 type，所有命令共用同一个桶，
-        # all_this_running(package) 就查不到 matcher 路径产生的任务。
-        package_key: Type[CommandPackage[Any]] = package if isinstance(package, type) else type(package)
+        package_type = type(package)
         try:
             task = asyncio.create_task(
                 cls.enter_handler(
@@ -1006,7 +1003,7 @@ class CommandCaller:
                     set()
                 ).add(task_id)
                 cls.running_packages.setdefault(
-                    package_key,
+                    package_type,
                     set()
                 ).add(task_id)
         except Exception as e:
@@ -1028,11 +1025,11 @@ class CommandCaller:
                     user_running.discard(task_id)
                     if not user_running:
                         cls.running_map.pop(persona_info.namespace, None)
-                if package_key in cls.running_packages:
-                    package_running = cls.running_packages[package_key]
+                if package_type in cls.running_packages:
+                    package_running = cls.running_packages[package_type]
                     package_running.discard(task_id)
                     if not package_running:
-                        cls.running_packages.pop(package_key, None)
+                        cls.running_packages.pop(package_type, None)
     
     @classmethod
     async def enter_handler(
