@@ -18,7 +18,7 @@ class BranchInfo(BaseBranch):
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
         client = await self.get_client(persona_info)
         response = await client.branch_info()
-        if response.code == 200:
+        if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error("Unable to process data.")

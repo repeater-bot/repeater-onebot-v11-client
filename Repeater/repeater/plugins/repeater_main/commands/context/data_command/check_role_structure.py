@@ -25,7 +25,7 @@ class CheckRoleStructure(CommandPackage):
         context_client = ContextClient(persona_info, user_config)
         response = await context_client.check_role_structure()
 
-        if response.code == 200:
+        if response:
             data = response.get_data()
             if data is not None:
                 await send_msg.send_prompt(data.message)

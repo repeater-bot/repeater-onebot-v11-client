@@ -26,7 +26,7 @@ class DownloadFromNexus(BaseNexus):
                 f"Invalid UUID: {persona_info.message_stripped_str}"
             )
 
-        if response.code == 200:
+        if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error("Unable to process data.")

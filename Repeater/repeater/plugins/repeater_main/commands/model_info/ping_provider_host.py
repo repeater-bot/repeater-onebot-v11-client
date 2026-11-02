@@ -40,7 +40,7 @@ class PingProviderHost(CommandPackage):
             persona_info.namespace_str,
             model_id = model_id
         )
-        if response.code == 200:
+        if response:
             ping_response = response.get_data()
             if ping_response is None:
                 await send_msg.send_error("Error: No Model Data")

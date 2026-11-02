@@ -25,7 +25,7 @@ class GetLastContent(CommandPackage):
         context_client = ContextClient(persona_info, user_config)
 
         response = await context_client.get_context()
-        if response.code == 200:
+        if response:
             context = response.get_data()
             if context is None:
                 await send_msg.send_error("Error: No Context Data")

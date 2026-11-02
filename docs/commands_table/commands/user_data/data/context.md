@@ -14,3 +14,5 @@
 | `getLastContent`           | `glc`    | `GetLastContent`          | `CONTEXT`   | 4.4.8.0        | 获取最后一条消息内容           | 无                                         | 获取当前会话的最后一条消息内容 |
 | `singleWithdraw`           | `sw`     | `SingleWithdraw`          | `CONTEXT`   | 4.4.13.0       | 单条撤回                      | 消息条数                                   | 直接按条撤回消息（而不是按对撤回） |
 | `sendContextFile`          | `scf`    | `SendContextFile`         | `CONTEXT`   | 4.5.5.0-beta   | 发送聊天记录文件               | 无                                        | 获取当前活动分支的聊天记录文件 |
+| `searchContext`            | `sctx`   | `SearchContext`           | `CONTEXT`   | 4.10.12.0      | 按正则检索全部上下文分支        | 正则表达式                                 | 整串 re.search，统计并按命中率排序各分支 |
+| `matchContext`             | `mctx`   | `MatchContext`            | `CONTEXT`   | 4.10.12.0      | 按正则匹配全部上下文分支        | 正则表达式                                 | 整串 re.match，其余与 searchContext 相同 |

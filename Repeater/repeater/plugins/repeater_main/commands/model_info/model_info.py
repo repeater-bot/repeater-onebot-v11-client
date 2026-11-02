@@ -34,7 +34,7 @@ class GetModelList(CommandPackage):
         model_id = persona_info.message_stripped_str
 
         response = await model_info_client.get_models(model_id)
-        if response.code == 200:
+        if response:
             model_info = response.get_data()
             if model_info is None:
                 await send_msg.send_error("Error: No Model Data")

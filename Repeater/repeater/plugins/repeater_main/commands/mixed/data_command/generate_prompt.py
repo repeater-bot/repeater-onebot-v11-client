@@ -77,7 +77,7 @@ class GeneratePrompt(CommandPackage):
                 text_buffer.append(buffer.content)
         text = "\n\n".join(text_buffer)
         prompt_response = await prompt_client.set_prompt(text)
-        if prompt_response.code != 200:
+        if prompt_response:
             await send_msg.send_response_check_code(prompt_response, "Set Prompt failed")
         else:
             await send_msg.send_mixed_render(

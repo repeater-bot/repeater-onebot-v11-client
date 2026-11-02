@@ -590,7 +590,7 @@ class SendMsg:
             "Response Code Is {code}",
             code = response.code
         )
-        if response.code != 200:
+        if response.code >= 400:
             if break_code is None:
                 break_code = 1
             await self.send_error_response(
@@ -757,7 +757,7 @@ class SendMsg:
         )
 
         if break_code is None:
-            if http_status == 200:
+            if http_status:
                 break_code = 0
             else:
                 break_code = 1
@@ -813,11 +813,11 @@ class SendMsg:
         for index, response in enumerate(responses, start=1):
             if isinstance(response, tuple):
                 text_buffer.append(f"[{response[1]}] HTTP Code: {response[0].code}({HTTPCode(response[0].code)})")
-                if response[0].code != 200:
+                if response[0].code:
                     failed += 1
             elif isinstance(response, Response):
                 text_buffer.append(f"[{index}] HTTP Code: {response.code}({HTTPCode(response.code)})")
-                if response.code != 200:
+                if response.code:
                     failed += 1
             else:
                 raise TypeError(f"Unsupported type: {type(response)}")
@@ -1484,7 +1484,7 @@ class SendMsg:
             "Send TTS"
         )
         response = await self._chat_tts_api.text_to_speech(text)
-        if response.code == 200:
+        if response.code:
             data = response.get_data()
             if data is not None:
                 await self._send(

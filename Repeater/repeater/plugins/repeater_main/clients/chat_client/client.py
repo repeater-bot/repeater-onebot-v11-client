@@ -60,6 +60,7 @@ class ChatClient(BaseClient):
     async def send_message(
         self,
         message: str | None = None,
+        context_branch_id: str | None = None,
         suffix: str | None = None,
         echo: bool | None = None,
         fim_mode: bool | None = None,
@@ -123,6 +124,7 @@ class ChatClient(BaseClient):
         data = ChatRequestModel(
             message = message,
             task_id = str(task_id),
+            context_branch_id = context_branch_id,
             suffix = suffix,
             echo = echo,
             fim_mode = fim_mode,

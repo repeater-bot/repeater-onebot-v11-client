@@ -17,6 +17,7 @@ from .permission_rule import PermissionRule
 from .external_trigger_server import ExternalTriggerServer
 from .chat_output import ChatOutput
 from .chat_loop import ChatLoopConfigs
+from .context_search import ContextSearchConfigs
 
 class StorageConfigs(BaseModel):
     text_length_score_configs: TextLengthScoreConfigs = Field(default_factory = TextLengthScoreConfigs)
@@ -42,6 +43,7 @@ class StorageConfigs(BaseModel):
     ciallo_content: str = "Ciallo~ (∠・ω< )⌒★"
     chat_output: ChatOutput = Field(default_factory = ChatOutput)
     chat_loop: ChatLoopConfigs = Field(default_factory = ChatLoopConfigs)
+    context_search: ContextSearchConfigs = Field(default_factory = ContextSearchConfigs)
     branch_file_size_use_abbreviation: bool = True
     hash_namespace_salt: str = Field(default_factory = lambda: secrets.token_urlsafe(64))
     hash_namespace_iterations: int = 0

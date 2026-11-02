@@ -349,6 +349,28 @@
         "exit_prompt": "System: From now on, exit message mode, the program will continue to respond to your direct output, please no longer use the method of sending messages to communicate with the user.",
     },
 
+    // 上下文正则检索配置
+    // 供 searchContext 与 matchContext 命令使用
+    "context_search": {
+
+        // 用户传入的正则的最大长度
+        "max_pattern_chars": 256,
+
+        // 单次匹配的时间上限
+        // 用于兜住用户正则引发的指数级回溯
+        // 超时后本次检索中止并提示用户
+        "match_timeout": 2.0,
+
+        // 同时拉取的分支数
+        // 拉取全部上下文分支时使用
+        // 实测超过 8 之后服务端开始排队，继续加大会变慢
+        "branch_concurrency": 8,
+
+        // 报告里最多列出的分支数
+        // 其余的只统计数量，不逐行列出
+        "max_reported_branches": 20
+    },
+
     // 生成图片所参考的文件的解析类型
     // 支持 url / path / base64
     // 具体请参考你的 OneBot 实现选择的方式

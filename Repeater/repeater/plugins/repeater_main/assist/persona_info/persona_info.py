@@ -504,6 +504,7 @@ class PersonaInfo:
 
     async def from_forward_msgs(
         self,
+        forward_msg_id: str | None = None,
     ) -> list[list[PersonaInfo]]:
         """
         从转发消息获取 PersonaInfo
@@ -518,7 +519,9 @@ class PersonaInfo:
                 )
                 for msg in msgs
             ]
-            for msgs in await self.get_forward_msgs()
+            for msgs in await self.get_forward_msgs(
+                forward_msg_id = forward_msg_id
+            )
         ]
     
     @property
@@ -1140,14 +1143,21 @@ class PersonaInfo:
             message if message is not None else self.message
         )
     
-    async def get_forward_msgs(self) -> list[list[MessageEvent]]:
+    async def get_forward_msgs(self, forward_msg_id: str | None = None) -> list[list[MessageEvent]]:
         """
         获取转发消息
 
         :return: 转发消息
         """
         forward_msgs: list[list[MessageEvent]] = []
-        for forward_msg_id in self.get_forward_ids():
+        if forward_msg_id is None:
+            for forward_msg_id in self.get_forward_ids():
+                forward_msg = await get_forward_msgs(
+                    self._cached_api,
+                    forward_msg_id
+                )
+                forward_msgs.append(forward_msg)
+        else:
             forward_msg = await get_forward_msgs(
                 self._cached_api,
                 forward_msg_id

@@ -99,5 +99,5 @@ class Response(Generic[T_Response]):
 
     def __bool__(self) -> bool:
         if self.initialized:
-            return self.code == 200
+            return self.code < 400
         return False
