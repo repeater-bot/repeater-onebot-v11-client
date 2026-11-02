@@ -1,15 +1,18 @@
-"""上下文正则检索：模式校验、扫描统计、分支编排与报告渲染。
+"""Context regex search: pattern validation, scanning, aggregation and reporting.
 
-searchContext 与 matchContext 只差一个锚定方式，其余全部共用这里：
+searchContext and matchContext differ only in how they anchor; everything else is
+shared here.
 
-- 纯 CPU 部分（compile_pattern / scan_texts）不做 IO、也不 await，调用方负责
-  放进 asyncio.to_thread，避免正则扫描阻塞事件循环（与 commands/cards/matching.py
-  的约定一致）。
-- 编排部分（scan_branches / execute）负责取分支、并发拉取与汇报。
+- The pure CPU parts (compile_pattern / scan_texts) do no IO and never await. Callers
+  are responsible for running them in asyncio.to_thread so regex scanning cannot block
+  the event loop (same convention as commands/cards/matching.py).
+- The orchestration parts (scan_branches / execute) handle branch listing, concurrent
+  fetching and reporting.
 
-用 regex 而不是标准库 re，只为了 timeout 参数：用户传入的正则可能触发指数级
-回溯，re 没有任何手段中断，regex 能给单次匹配一个硬上限。
-注意 regex 超时抛的是内置 TimeoutError，模块里没有 regex.TimeoutError。
+The regex module is used instead of the stdlib re purely for its timeout argument: a
+user supplied pattern may trigger exponential backtracking, which re cannot interrupt,
+while regex can bound a single match. Note that regex raises the builtin TimeoutError
+on timeout; the module has no regex.TimeoutError attribute.
 """
 
 from __future__ import annotations
@@ -27,24 +30,25 @@ from ....clients import ContextClient
 
 @dataclass(frozen = True, slots = True)
 class ScanResult:
-    """一次扫描的统计结果。"""
+    """Statistics for a single scan."""
 
     records_hit: int
-    """命中至少一次的记录条数，命中率的分子。"""
+    """Number of records matched at least once, the numerator of the hit rate."""
 
     records_total: int
-    """参与扫描的记录条数，命中率的分母。"""
+    """Number of records scanned, the denominator of the hit rate."""
 
     occurrences: int
-    """命中次数。search 模式是匹配出现的次数，match 模式与命中条数相同（每条至多一次）。"""
+    """Number of matches. In search mode this is the match count, in match mode it
+    equals records_hit because anchoring allows at most one hit per record."""
 
     @property
     def ratio(self) -> float:
-        """命中率，没有记录时为 0.0。"""
+        """Hit rate, 0.0 when nothing was scanned."""
         return self.records_hit / self.records_total if self.records_total else 0.0
 
     def merge(self, other: ScanResult) -> ScanResult:
-        """累加另一份统计。"""
+        """Return a result with another one added in."""
         return ScanResult(
             records_hit = self.records_hit + other.records_hit,
             records_total = self.records_total + other.records_total,
@@ -53,26 +57,30 @@ class ScanResult:
 
 
 def compile_pattern(raw: str) -> regex.Pattern:
-    """校验并编译用户传入的正则。
+    """Validate and compile a user supplied regex.
 
-    :param raw: 命令参数的原文
-    :return: 编译好的正则
-    :raises ValueError: 模式为空、过长、语法错误，或能匹配空字符串
+    :param raw: the raw command argument
+    :return: the compiled pattern
+    :raises ValueError: the pattern is empty, too long, syntactically invalid,
+        or matches the empty string
     """
     configs = storage_configs.context_search
     text = raw.strip()
     if not text:
-        raise ValueError("检索模式不能为空")
+        raise ValueError("Pattern must not be empty")
     if len(text) > configs.max_pattern_chars:
-        raise ValueError(f"检索模式过长，上限 {configs.max_pattern_chars} 字符")
+        raise ValueError(f"Pattern too long, limit is {configs.max_pattern_chars} characters")
 
     try:
         pattern = regex.compile(text)
     except regex.error as exc:
-        raise ValueError(f"正则语法错误：{exc}") from exc
+        raise ValueError(f"Invalid regex: {exc}") from exc
 
     if pattern.search("", timeout = configs.match_timeout) is not None:
-        raise ValueError("检索模式能匹配空字符串，命中率会恒为 100%，请加上限定（如 .+ / \\S+）")
+        raise ValueError(
+            "Pattern matches the empty string, which would make every hit rate 100%; "
+            "add a constraint such as .+ or \\S+"
+        )
 
     return pattern
 
@@ -83,27 +91,31 @@ def scan_texts(
         *,
         anchored: bool
     ) -> ScanResult:
-    """扫描一批完整字符串，统计命中条数与出现次数。
+    """Scan a batch of whole strings and count hits and matches.
 
-    不切行：行首行尾由用户自己在模式里用 (?m)^ 之类控制。
+    Lines are not split: line anchoring is up to the user via (?m)^ and friends.
 
-    :param texts: 待扫描的字符串
-    :param pattern: compile_pattern 的结果
-    :param anchored: True 用 match（从整串开头），False 用 search（任意位置）
-    :raises TimeoutError: 单次匹配超过 storage_configs.context_search.match_timeout
+    :param texts: the strings to scan
+    :param pattern: the result of compile_pattern
+    :param anchored: True uses match (from the start of the content),
+        False uses search (anywhere in the content)
+    :raises TimeoutError: a single match exceeded
+        storage_configs.context_search.match_timeout
     """
     timeout = storage_configs.context_search.match_timeout
     records_hit = 0
     occurrences = 0
 
     if anchored:
-        # match 锚在整串开头，每条最多命中一次，出现次数即命中条数
+        # Anchored at the start of the content, so each record hits at most once
+        # and the number of occurrences equals the number of hit records.
         for text in texts:
             if pattern.match(text, timeout = timeout) is not None:
                 records_hit += 1
         occurrences = records_hit
     else:
-        # findall 一趟同时给出命中条数与出现次数，省掉第二次扫描
+        # A single findall pass yields both the hit count and the match count,
+        # which saves a second scan.
         for text in texts:
             hits = len(pattern.findall(text, timeout = timeout))
             if hits:
@@ -118,7 +130,7 @@ def scan_texts(
 
 
 class ScanError(Exception):
-    """检索过程中不可恢复的错误。"""
+    """Unrecoverable error during a scan."""
 
     def __init__(self, message: str, response: Any = None):
         super().__init__(message)
@@ -127,7 +139,7 @@ class ScanError(Exception):
 
 @dataclass(frozen = True, slots = True)
 class BranchScan:
-    """单个分支的扫描结果。"""
+    """Scan result of a single branch."""
 
     branch_id: str
     result: ScanResult
@@ -135,27 +147,27 @@ class BranchScan:
 
 @dataclass(frozen = True, slots = True)
 class ScanReport:
-    """一次完整检索的结果。"""
+    """Result of a full scan."""
 
     pattern: str
     anchored: bool
     scans: tuple[BranchScan, ...]
     failed: tuple[str, ...]
-    """读取或扫描失败的分支，不进分子分母。"""
+    """Branches that could not be loaded or scanned, excluded from both counters."""
 
     skipped: int
-    """空分支数（没有可统计的记录）。"""
+    """Number of empty branches with nothing to scan."""
 
     @property
     def total(self) -> ScanResult:
-        """所有参与统计的分支的合计。"""
+        """Combined result over every branch that took part."""
         total = ScanResult(0, 0, 0)
         for scan in self.scans:
             total = total.merge(scan.result)
         return total
 
     def ranked(self) -> tuple[BranchScan, ...]:
-        """按命中率降序排列，同率时命中条数多的在前。"""
+        """Sort by hit rate descending, ties broken by the higher hit count."""
         return tuple(
             sorted(
                 self.scans,
@@ -171,23 +183,23 @@ async def scan_branches(
         *,
         anchored: bool
     ) -> ScanReport:
-    """拉取全部上下文分支并统计。
+    """Fetch every context branch and scan it.
 
-    同一 ContextClient 可并发使用：get_context_contents 无副作用，不像
-    change_branch 那样改服务端的活动分支。
+    The same ContextClient can be used concurrently: get_context_contents has no side
+    effects, unlike change_branch which mutates the active branch on the server.
 
-    :param client: ContextClient 实例
-    :param pattern: compile_pattern 的结果
-    :param anchored: True 用 match，False 用 search
-    :raises ScanError: 拿不到分支列表，或某个模式触发匹配超时
+    :param client: a ContextClient instance
+    :param pattern: the result of compile_pattern
+    :param anchored: True uses match, False uses search
+    :raises ScanError: the branch list is unavailable, or a match timed out
     """
     branch_response = await client.get_branch_list()
     if not branch_response:
-        raise ScanError("获取分支列表失败", branch_response)
+        raise ScanError("Failed to get branch list", branch_response)
 
     branches = branch_response.json()
     if not isinstance(branches, list) or not branches:
-        raise ScanError("没有可检索的分支")
+        raise ScanError("No branches to search")
 
     semaphore = asyncio.Semaphore(storage_configs.context_search.branch_concurrency)
 
@@ -218,10 +230,11 @@ async def scan_branches(
         if isinstance(item, TimeoutError):
             timeout = storage_configs.context_search.match_timeout
             raise ScanError(
-                f"检索模式在 {timeout:g} 秒内没跑完，疑似指数级回溯，已中止"
+                f"Pattern did not finish within {timeout:g}s, "
+                "possible catastrophic backtracking, aborted"
             )
         if isinstance(item, asyncio.CancelledError):
-            # 命令被取消时不能当成普通分支失败，要让取消继续向上传播
+            # A cancelled command must not be recorded as a branch failure.
             raise item
         if isinstance(item, BaseException):
             failed.append(branch_id)
@@ -240,12 +253,21 @@ async def scan_branches(
     )
 
 
+def _count(count: int, singular: str, plural: str) -> str:
+    """Render a count together with the matching noun form."""
+    return f"{count} {singular if count == 1 else plural}"
+
+
 def format_report(report: ScanReport) -> str:
-    """把统计结果渲染成给用户看的文本。"""
-    mode = "match（从整串开头）" if report.anchored else "search（任意位置）"
+    """Render the scan result as text for the user."""
+    if report.anchored:
+        mode = "match (anchored at the start of the content)"
+    else:
+        mode = "search (anywhere in the content)"
+
     lines: list[str] = [
-        f"模式：{report.pattern}",
-        f"方式：{mode}",
+        f"Pattern: {report.pattern}",
+        f"Mode: {mode}",
         ""
     ]
 
@@ -254,29 +276,30 @@ def format_report(report: ScanReport) -> str:
     shown = matched[:storage_configs.context_search.max_reported_branches]
 
     if not matched:
-        lines.append("（没有任何分支命中）")
+        lines.append("(no branch matched)")
     for scan in shown:
         result = scan.result
         lines.append(
-            f"· {scan.branch_id}  {result.records_hit}/{result.records_total}"
-            f"  {result.ratio:.1%}  共 {result.occurrences} 次"
+            f"- {scan.branch_id}: {result.records_hit}/{result.records_total}"
+            f" ({result.ratio:.1%}), {_count(result.occurrences, 'match', 'matches')}"
         )
     if len(matched) > len(shown):
-        lines.append(f"… 另有 {len(matched) - len(shown)} 个命中分支未列出")
+        more = _count(len(matched) - len(shown), "matching branch", "matching branches")
+        lines.append(f"... and {more} not listed")
 
     total = report.total
     lines.append("")
     lines.append(
-        f"整体：{total.records_hit}/{total.records_total} = {total.ratio:.1%}"
-        f"  共 {total.occurrences} 次"
+        f"Total: {total.records_hit}/{total.records_total}"
+        f" = {total.ratio:.1%}, {_count(total.occurrences, 'match', 'matches')}"
     )
 
     if report.skipped:
-        lines.append(f"跳过：{report.skipped} 个空分支")
+        lines.append(f"Skipped: {_count(report.skipped, 'empty branch', 'empty branches')}")
     if report.failed:
-        names = "、".join(report.failed[:5])
-        more = f" 等 {len(report.failed)} 个" if len(report.failed) > 5 else ""
-        lines.append(f"失败：{names}{more}，未计入统计")
+        names = ", ".join(report.failed[:5])
+        more = f" and {len(report.failed) - 5} more" if len(report.failed) > 5 else ""
+        lines.append(f"Failed: {names}{more} (excluded from totals)")
 
     return "\n".join(lines)
 
@@ -287,11 +310,11 @@ async def execute(
         *,
         anchored: bool
     ) -> None:
-    """两个命令共用的流程：取参数 -> 编译 -> 扫描 -> 汇报。
+    """Shared flow of both commands: read args, compile, scan, report.
 
-    :param persona_info: 当前会话信息
-    :param send_msg: 消息发送器
-    :param anchored: True 用 match，False 用 search
+    :param persona_info: the current session info
+    :param send_msg: the message sender
+    :param anchored: True uses match, False uses search
     """
     try:
         pattern = compile_pattern(persona_info.args_str)

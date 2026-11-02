@@ -3,16 +3,16 @@ from pydantic import BaseModel, Field
 
 class ContextSearchConfigs(BaseModel):
     """
-    上下文正则检索（searchContext / matchContext）的可调参数
+    Tunables for context regex search (searchContext / matchContext)
     """
     max_pattern_chars: int = Field(default = 256, ge = 1)
-    """用户正则的最大长度"""
+    """Maximum length of a user supplied regex"""
 
     match_timeout: int | float = Field(default = 2.0, gt = 0)
-    """单次匹配的时间上限（秒），用于兜住指数级回溯"""
+    """Upper bound in seconds for a single match, guarding against exponential backtracking"""
 
     branch_concurrency: int = Field(default = 8, ge = 1)
-    """同时拉取的分支数"""
+    """Number of branches fetched concurrently"""
 
     max_reported_branches: int = Field(default = 20, ge = 1)
-    """报告里最多列出的分支数"""
+    """Maximum number of branches listed in the report"""
