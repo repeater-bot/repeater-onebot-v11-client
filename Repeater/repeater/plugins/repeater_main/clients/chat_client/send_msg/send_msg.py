@@ -143,7 +143,7 @@ class ChatSendMsg(SendMsg):
                 continue_handler = continue_handler
             )
         
-        elif self._response.code and self._error is not None:
+        elif not self._response and self._error is not None:
             await self.send_error_response(
                 self._error,
                 reply = reply,
