@@ -457,7 +457,7 @@ class ChatLoopSession:
             # 也拿不到任何可依据的东西。配置里用 {time} 占位，这里只替换它。
             text = str(self.configs.empty_batch_prompt).replace(
                 "{time}",
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                datetime.now().isoformat(timespec = "seconds")
             )
         await self.client.send_message(
             message = text,

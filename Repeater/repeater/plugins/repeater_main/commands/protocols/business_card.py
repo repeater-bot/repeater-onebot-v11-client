@@ -59,6 +59,7 @@ class BusinessCard(CommandPackage):
         if group_member_info is not None:
             text_buffer.append(f"**Join group time: **{json.dumps(datetime.fromtimestamp(group_member_info.join_time).isoformat(), ensure_ascii=False)}")
             text_buffer.append(f"**Last speak time: **{json.dumps(datetime.fromtimestamp(group_member_info.last_sent_time).isoformat(), ensure_ascii=False)}")
+        text_buffer.append(f"**Registration time: **{json.dumps(datetime.fromtimestamp(persona_business_card.reg_time).isoformat(), ensure_ascii=False)}")
         return "\n".join(text_buffer)
         
 
