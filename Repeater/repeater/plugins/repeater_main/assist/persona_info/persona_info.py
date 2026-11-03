@@ -1120,7 +1120,8 @@ class PersonaInfo:
         try:
             chain = get_reply_chain(
                 bot = self._cached_api,
-                message = message,
+                event = self.event,
+                args = self.args,
                 max_depth = max_depth
             )
             async for msg in chain:
@@ -1139,8 +1140,9 @@ class PersonaInfo:
         :return: 回复消息
         """
         return await get_reply_msgs(
-            self._cached_api,
-            message if message is not None else self.message
+            bot = self._cached_api,
+            event = self.event,
+            args = self.args
         )
     
     async def get_forward_msgs(self, forward_msg_id: str | None = None) -> list[list[MessageEvent]]:
