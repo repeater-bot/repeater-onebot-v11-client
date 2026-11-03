@@ -27,7 +27,7 @@ class SmartAT(BaseChat):
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
         if not storage_configs.ignore_enter.allow_check_online:
             return False
-        return not await CommandCaller.exists_status(f"SmartAT_Block_{persona_info.scene_str}") or persona_info.enter_type is not EnterType.Message
+        return not (await CommandCaller.exists_status(f"SmartAT_Block_{persona_info.scene_str}") and persona_info.enter_type is EnterType.Message)
 
     async def parse_message(
         self,

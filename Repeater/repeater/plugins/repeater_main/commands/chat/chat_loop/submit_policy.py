@@ -20,6 +20,7 @@
     score_weight_message_count      窗口内消息条数
     score_weight_seconds_since_bot  距上次发言的秒数（已取 log1p）
     score_weight_pending            当前积压条数
+    keyword_bias_scale              关键词总权重折算成 logit 的系数
     sample_window_seconds           取样窗口时长（秒）
     sample_min_count                样本达到多少条才改用窗口内的经验分布
     overrun_tighten_factor          已提交次数多于目标时的收紧因子
@@ -41,6 +42,9 @@ from typing import Any, Callable, Sequence
 # 数值稳定性用的封顶，不是可调参数：只是别让 exp 在大分数上溢出
 _SIGMOID_LIMIT = 60.0
 
+# 把概率夹进开区间再取 logit，避免 log(0)。不是可调参数
+_LOGIT_EPSILON = 1e-6
+
 @dataclass(frozen = True, slots = True)
 class MessageRecord:
     """一条消息到达时刻的记录，只留判定用得到的字段。"""
@@ -51,6 +55,8 @@ class MessageRecord:
     question: bool
     at_other: bool
     has_text: bool
+    keyword_gain: float = 0.0
+    """这条消息命中的关键词权重之和；窗口内的汇总在 extract_features 里做。"""
 
 @dataclass(frozen = True, slots = True)
 class SampleFeatures:
@@ -64,6 +70,7 @@ class SampleFeatures:
     message_count: float
     log_seconds_since_bot: float
     pending_count: float
+    keyword_gain: float
 
 @dataclass(frozen = True, slots = True)
 class SubmitDecision:
@@ -129,6 +136,7 @@ def extract_features(
     message_count = 0
     self_count = 0
     mention_bot = 0.0
+    keyword_gain = 0.0
     latest_other: MessageRecord | None = None
     for record in recent:
         if record.at < window_start:
@@ -139,6 +147,7 @@ def extract_features(
             continue
         if record.is_tome:
             mention_bot = 1.0
+        keyword_gain += record.keyword_gain
         latest_other = record
 
     if latest_other is None:
@@ -168,6 +177,7 @@ def extract_features(
         message_count = float(message_count),
         log_seconds_since_bot = log_seconds,
         pending_count = pending_count,
+        keyword_gain = max(-1.0, min(1.0, keyword_gain)),
     )
 
 def compute_probability(features: SampleFeatures, configs: Any) -> float:
@@ -187,6 +197,26 @@ def compute_probability(features: SampleFeatures, configs: Any) -> float:
     score += float(configs.score_weight_seconds_since_bot) * features.log_seconds_since_bot
     score += float(configs.score_weight_pending) * features.pending_count
     return _sigmoid(score)
+
+def apply_keyword_bias(probability: float, keyword_gain: float, configs: Any) -> float:
+    """按关键词总权重把概率往两边推，得到「要不要交」这一层真正用来比较的值。
+
+    只在 logit 上做加减，不重建线性式：正负对称，也不会像乘性调整那样在概率接近
+    0 或 1 时被压住。权重 1.0 折算多少 logit 由 `keyword_bias_scale` 决定。
+
+    这个值只用于最终比较，不写回概率：调用方仍然把原始概率交给额度统计，否则命中
+    一次关键词会把整个取样窗口的目标提交量一起抬高。
+    """
+
+    value = clamp_unit(probability)
+    gain = max(-1.0, min(1.0, float(keyword_gain)))
+    scale = float(configs.keyword_bias_scale)
+    if scale <= 0.0 or gain == 0.0:
+        return value
+
+    bounded = min(max(value, _LOGIT_EPSILON), 1.0 - _LOGIT_EPSILON)
+    logit = math.log(bounded / (1.0 - bounded))
+    return _sigmoid(logit + scale * gain)
 
 def interpolate_threshold(allowance_share: float, curve: Any) -> float:
     """把允许份额按静态曲线分段线性插值成阈值。

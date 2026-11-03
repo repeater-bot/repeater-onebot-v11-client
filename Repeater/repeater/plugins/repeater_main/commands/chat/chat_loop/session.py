@@ -1,7 +1,9 @@
 import asyncio
+import re
 import time
 from collections import deque
 from contextlib import suppress
+from datetime import datetime
 
 import orjson
 
@@ -14,6 +16,7 @@ from .submit_policy import (
     MessageRecord,
     SubmissionPolicy,
     adaptive_window_seconds,
+    apply_keyword_bias,
     apply_timing_shake,
     compute_probability,
     empty_streak_multiplier,
@@ -32,6 +35,7 @@ class ChatLoopSession:
         self.configs = configs
         self.scene = persona_info.scene
         self.status_name = f"SmartAT_Block_{persona_info.scene_str}"
+        self._keyword_pattern, self._keyword_weights = self._compile_keywords(configs.keyword_weights)
         self.client: ChatClient | None = None
         self.message_queue: asyncio.Queue[PersonaInfo] = asyncio.Queue()
         self._wake = asyncio.Event()
@@ -124,7 +128,14 @@ class ChatLoopSession:
                 seconds_since_bot = elapsed,
                 configs = self.configs,
             )
-            probability = compute_probability(features, self.configs)
+            # 关键词只影响「这一批要不要交」的比较值；额度统计仍然只吃原始概率，
+            # 否则命中一次关键词会把取样窗口的目标提交量一起抬高
+            base_probability = compute_probability(features, self.configs)
+            probability = apply_keyword_bias(
+                base_probability,
+                features.keyword_gain,
+                self.configs
+            )
 
             if urgent:
                 # 在这里消费标记，而不是在 _submit 里：send_messages 是个 await，
@@ -140,7 +151,7 @@ class ChatLoopSession:
                     await self._wait_next(self._retry_wait(pending))
                 continue
 
-            self._policy.observe_candidate(probability, now)
+            self._policy.observe_candidate(base_probability, now)
             decision = self._policy.evaluate(
                 probability,
                 float(self.configs.reply_rate),
@@ -152,7 +163,12 @@ class ChatLoopSession:
                 continue
 
             self._consecutive_holds += 1
-            logger.info("Chat loop held a batch: {decision}", decision = str(decision))
+            logger.info(
+                "Chat loop held a batch: {decision} kw={gain:.2f} base={base:.3f}",
+                decision = str(decision),
+                gain = features.keyword_gain,
+                base = base_probability
+            )
             await self._wait_next(self._retry_wait(pending))
 
     async def _wait_next(self, timeout: float) -> None:
@@ -276,6 +292,7 @@ class ChatLoopSession:
                 question = "?" in text or "？" in text,
                 at_other = bool(persona_info.noself_at_list),
                 has_text = bool(text),
+                keyword_gain = self._keyword_gain(text),
             )
         )
         if is_tome:
@@ -284,6 +301,45 @@ class ChatLoopSession:
         self._empty_streak = 0
         self._wake.set()
         self.message_queue.put_nowait(persona_info)
+
+    @staticmethod
+    def _compile_keywords(weights: dict[str, float]) -> tuple[re.Pattern[str] | None, dict[str, float]]:
+        """把关键词表编成一条按长度降序的 alternation 正则。
+
+        正则的 alternation 在每个位置按顺序试，长的放在前面就能遮蔽短的：
+        「哈尔滨」不会再同时命中「哈」。finditer 天然不重叠，所以不相邻的多个
+        关键词仍然各算一次。键统一转小写，匹配用 IGNORECASE，取回的原文再转
+        小写查权重表。
+        """
+
+        normalized: dict[str, float] = {}
+        for keyword, weight in weights.items():
+            text = str(keyword).strip().lower()
+            if text:
+                normalized[text] = float(weight)
+        if not normalized:
+            return None, {}
+
+        ordered = sorted(normalized, key = len, reverse = True)
+        pattern = "|".join(re.escape(keyword) for keyword in ordered)
+        return re.compile(pattern, re.IGNORECASE), normalized
+
+    def _keyword_gain(self, text: str) -> float:
+        """这条消息命中的关键词权重之和；负数抑制、正数更容易触发。
+
+        匹配走「最长优先」：同一位置能命中多个词时，长的那个遮蔽短的，所以
+        「哈尔滨」只算它自己那条权重，不会叠上「哈」；不相邻的多个关键词仍然
+        各算一次。窗口内的汇总和夹取在特征提取那一侧做。
+        """
+
+        pattern = self._keyword_pattern
+        if pattern is None or not text:
+            return 0.0
+
+        gain = 0.0
+        for match in pattern.finditer(text):
+            gain += self._keyword_weights.get(match.group(0).lower(), 0.0)
+        return gain
 
     def _split_mentions(self, messages: list[PersonaInfo]) -> tuple[list[PersonaInfo], list[PersonaInfo]]:
         """把叫我的消息从批次里挑出来，返回（其余消息, 点名消息）。
@@ -396,19 +452,95 @@ class ChatLoopSession:
             block = self.format_messages(pinned)
             divider = self.configs.mention_divider
             text = f"{text}\n\n{divider}\n\n{block}" if text else block
+        if not text:
+            # 空批次也必须带内容：只发一个空串的话，模型既不知道现在几点、
+            # 也拿不到任何可依据的东西。配置里用 {time} 占位，这里只替换它。
+            text = str(self.configs.empty_batch_prompt).replace(
+                "{time}",
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
         await self.client.send_message(
             message = text,
             raw_message = True
         )
 
-    @staticmethod
-    def format_messages(messages: list[PersonaInfo]) -> str:
+    def format_messages(self, messages: list[PersonaInfo]) -> str:
+        """把一批消息格式化成模型读的文本；被引用过的消息展开成下面一行。
+
+        被引用的消息不用再查平台：onebot v11 在事件进站时就把 `get_msg` 的结果放在
+        `event.reply` 上（同时把 reply 消息段从 message 里删掉），所以这里只读内存。
+        adapter 查询失败时 `event.reply` 为 None、而 reply 段还留在 message 里，
+        这种情况退化成标注一句「引用了不可获取的消息」并把段打出来。
+        """
+
         formatted_messages: list[str] = []
         for message in messages:
-            formatted_messages.append(
-                f"[{orjson.dumps(message.display_name).decode('utf-8')}|time={message.time.isoformat()}|usrid={message.user_id}|msgid={message.message_id}]: {orjson.dumps(message.message_cqcode).decode('utf-8')}"
-            )
+            formatted_messages.append(self._format_message_line(message))
+            quoted = self._quoted_line(message)
+            if quoted is not None:
+                formatted_messages.append(quoted)
         return "\n".join(formatted_messages)
+
+    @staticmethod
+    def _format_message_line(message: PersonaInfo) -> str:
+        return (
+            f"[{orjson.dumps(message.display_name).decode('utf-8')}"
+            f"|time={message.time.isoformat()}"
+            f"|usrid={message.user_id}"
+            f"|msgid={message.message_id}]: "
+            f"{orjson.dumps(message.message_cqcode).decode('utf-8')}"
+        )
+
+    def _quoted_line(self, message: PersonaInfo) -> str | None:
+        """被引用消息的二级条目；这条不是回复时返回 None。"""
+
+        reply = getattr(message.event, "reply", None)
+        if reply is not None:
+            sender = getattr(reply, "sender", None)
+            name = (
+                getattr(sender, "card", None)
+                or getattr(sender, "nickname", None)
+                or str(getattr(sender, "user_id", "?"))
+            )
+            try:
+                replied_at = datetime.fromtimestamp(int(reply.time)).isoformat(
+                    timespec = "seconds"
+                )
+            except Exception:
+                replied_at = str(getattr(reply, "time", ""))
+            return (
+                f"  >> Reply [{orjson.dumps(name).decode('utf-8')}"
+                f"|time={replied_at}"
+                f"|usrid={getattr(sender, 'user_id', '?')}"
+                f"|msgid={getattr(reply, 'message_id', '?')}]: "
+                f"{orjson.dumps(self._truncate(str(reply.message))).decode('utf-8')}"
+            )
+
+        return self._unresolved_quote_line(message.message_cqcode)
+
+    def _unresolved_quote_line(self, cqcode: str) -> str | None:
+        """adapter 没查到被引用消息时的降级：只标注引用段的原文。"""
+
+        if not cqcode or "[CQ:reply" not in cqcode:
+            return None
+        start = cqcode.find("[CQ:reply")
+        end = cqcode.find("]", start)
+        if end <= start:
+            return None
+        return f"  >> Unreachable message was referenced: {cqcode[start:end + 1]}"
+
+    def _truncate(self, text: str) -> str:
+        """被引用内容按配置截断；0 表示不截断。
+
+        截的是**原始 CQ 串**，发生在 json 转义之前：省略号落在字符串内部，转义出来
+        的引号因此始终成对。代价是转义后的长度可能略超上限（换行、引号会膨胀），
+        但这个上限管的是内容长度，不是转义后长度。
+        """
+
+        limit = max(0, int(self.configs.reply_inline_max_chars))
+        if limit and len(text) > limit:
+            return text[:limit] + "…"
+        return text
 
     async def _resolve_tome(self, persona_info: PersonaInfo) -> bool:
         """判断这条消息是不是在叫我。

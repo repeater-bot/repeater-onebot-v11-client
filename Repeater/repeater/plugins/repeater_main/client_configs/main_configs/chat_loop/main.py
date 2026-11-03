@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .enter_prompt import enter_prompt as default_enter_prompt
 from .exit_prompt import exit_prompt as default_exit_prompt
@@ -20,7 +20,15 @@ class ChatLoopConfigs(BaseModel):
     empty_streak_max_multiplier: float = Field(default = 8.0, ge = 1.0) # 空批次拉长的封顶倍数（相对自适应窗口）
     timing_shake_ratio: float = Field(default = 0.15, ge = 0.0, le = 1.0) # 等待时长的对称抖动比例，0 关闭
     submit_empty_batch: bool = Field(default = True) # 窗口到点却一条积压都没有时也提交空批次，给模型一个接话的机会
+    empty_batch_prompt: str = Field(default = "System: No new message in this batch. Current time: {time}") # 空批次实际发出去的文本，{time} 会替换成当前时间；否则模型只收到空串，没有时间锚点
     mention_divider: str = Field(default = "---") # 点名消息和前面内容之间的分隔线
+
+    # 关键词反馈：命中关键词时按权重调整「这一批要不要交」的比较值，正权重更容易触发、负权重抑制
+    keyword_weights: dict[str, float] = Field(default_factory = dict) # 关键词 → 权重，取值 -1~1，0 为中性
+    keyword_bias_scale: float = Field(default = 1.0, ge = 0.0) # 权重 1.0 折算成多少 logit，约等于把 odds 乘 e
+
+    # 回复内嵌：提交时把被引用的那条消息展开成主消息下面的一行
+    reply_inline_max_chars: int = Field(default = 120, ge = 0) # 被引用内容的字符上限，0 表示不截断
 
     # 特征窗口：最近多久的消息算进「最近消息」里
     feature_window_seconds: int | float = Field(default = 240, gt = 0) # 秒
@@ -65,3 +73,17 @@ class ChatLoopConfigs(BaseModel):
     retry_delay_bypass_pending: int = Field(default = 5, ge = 1) # 积压达到多少条就取消拉长
 
     cleanup_timeout: int | float = Field(default = 10, gt = 0) # 秒
+
+    @field_validator("keyword_weights")
+    @classmethod
+    def _validate_keyword_weights(cls, value: dict[str, float]) -> dict[str, float]:
+        """关键词权重必须落在 -1~1：越界直接报错，不静默截断成另一个意思。"""
+
+        for keyword, weight in value.items():
+            if not str(keyword).strip():
+                raise ValueError("keyword_weights 里不允许空关键词")
+            if not -1.0 <= float(weight) <= 1.0:
+                raise ValueError(
+                    f"关键词 {keyword!r} 的权重 {weight} 超出 -1~1"
+                )
+        return value
