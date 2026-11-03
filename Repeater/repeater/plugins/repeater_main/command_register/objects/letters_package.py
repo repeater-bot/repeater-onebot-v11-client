@@ -7,6 +7,7 @@ from typing import (
     Awaitable,
     Callable,
     Generator,
+    Hashable,
     TypeVar
 )
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ class LettersPackage(Awaitable[T]):
     """
     future: asyncio.Future[T]
     """Waiting for a value to be set."""
-    name: str
+    name: Hashable
     """Package name."""
     id: uuid.UUID
     """Package id."""

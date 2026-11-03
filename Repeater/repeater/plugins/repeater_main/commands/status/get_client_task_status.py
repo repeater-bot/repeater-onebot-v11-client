@@ -33,7 +33,7 @@ class GetCoreTaskStatus(CommandPackage):
         user_configs = await persona_info.get_user_configs()
         status_client = StatusClient(persona_info, user_configs)
         response = await status_client.get_client_task_status(persona_info.namespace_str)
-        if response.code == 200:
+        if response:
             status_response = response.get_data()
             if not status_response:
                 await send_msg.send_prompt("Free")

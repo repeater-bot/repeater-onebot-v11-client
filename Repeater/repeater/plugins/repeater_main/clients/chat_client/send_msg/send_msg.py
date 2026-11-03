@@ -11,6 +11,7 @@ from ....assist import (
     SendingTarget,
     SEND_HOOK,
     RENDER_HOOK,
+    Scene,
     ChatTTSAPI,
     ErrorResponse,
     text_content_cutter,
@@ -37,8 +38,7 @@ class ChatSendMsg(SendMsg):
             reply: MessageSegment | None = None,
             prefix: Message | None = None,
             suffix: Message | None = None,
-            target_group: str | None = None,
-            target_user: str | None = None,
+            target: Scene | None = None,
             send_target: SendingTarget = SendingTarget.AUTO,
             send_hook: SEND_HOOK | None = None,
             render_hook: RENDER_HOOK | None = None,
@@ -51,8 +51,7 @@ class ChatSendMsg(SendMsg):
             reply = reply,
             prefix = prefix,
             suffix = suffix,
-            target_group = target_group,
-            target_user = target_user,
+            target = target,
             send_target = send_target,
             send_hook = send_hook,
             render_hook = render_hook,
@@ -144,7 +143,7 @@ class ChatSendMsg(SendMsg):
                 continue_handler = continue_handler
             )
         
-        elif self._response.code != 200 and self._error is not None:
+        elif not self._response and self._error is not None:
             await self.send_error_response(
                 self._error,
                 reply = reply,
@@ -268,9 +267,9 @@ class ChatSendMsg(SendMsg):
 
         logger.info(
             "Chat Output Mode: {reasoning}/{tool}/{content}",
-            reasoning = output_reasoning_content_mode,
-            tool = output_tool_call_mode,
-            content = output_content_mode
+            reasoning = output_reasoning_content_final_mode,
+            tool = output_tool_call_final_mode,
+            content = output_content_final_mode
         )
 
         message = await self.parse_response(

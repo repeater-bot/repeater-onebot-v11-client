@@ -1,5 +1,5 @@
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message
-from ...namespace import MessageSource
+from ...scene import MessageSource
 from .send_group_file import send_group_file
 from .send_private_file import send_private_file
 

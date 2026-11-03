@@ -1,14 +1,17 @@
 from fastapi import HTTPException
 from nonebot.adapters.onebot.v11 import Message
-from ...assist import Namespace
-from .router import root_router
+from .....assist import Namespace
+from ...router import root_router
 from .request import ExternalTriggerRequest
 from .response import ExternalTriggerResponse
-from .register import register_external_trigger
-from .make_message_event import make_message_event
+from ...register import register_external_trigger
+from ...make_message_event import make_message_event
+from ...config import external_trigger_config
 
 @root_router.post("/call")
-async def external_trigger_call(request: ExternalTriggerRequest):
+async def external_trigger_call(
+    request: ExternalTriggerRequest
+):
     """
     External trigger call endpoint
     """

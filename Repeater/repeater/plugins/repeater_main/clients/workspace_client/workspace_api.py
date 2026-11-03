@@ -1,6 +1,8 @@
+import base64
+
 from ...client_configs import *
 from ...assist import Response, BaseClient
-from .request import DestinationRequest
+from .request import DestinationRequest, EditRequest, CopyRangeRequest
 from .response import (
     FileInfo,
     DeleteResult,
@@ -13,10 +15,21 @@ class WorkspaceClient(BaseClient):
 
     async def get_file(
             self,
-            path: str
+            path: str,
+            start: int | None = None,
+            length: int | None = None,
+            headers: dict[str, str] | None = None
         ) -> Response[bytes]:
+        request_headers = dict(headers or {})
+        if start is None and length is not None:
+            start = 0
+        if start is not None:
+            end = "" if length is None else str(start + length - 1)
+            request_headers["Range"] = f"bytes={start}-{end}"
+
         response = await self.client.get(
-            url = self.join_url(WORKSPACE_GET_FILE_ROUTE, path)
+            url = self.join_url(WORKSPACE_GET_FILE_ROUTE, path),
+            headers = request_headers or None
         )
         return Response(
             httpx_response = response
@@ -36,6 +49,12 @@ class WorkspaceClient(BaseClient):
         return Response(
             httpx_response = response
         )
+
+    def file_url(
+            self,
+            path: str
+        ) -> str:
+        return self.join_url(WORKSPACE_GET_FILE_ROUTE, path)
 
     async def list_dir(
             self,
@@ -84,6 +103,47 @@ class WorkspaceClient(BaseClient):
             httpx_response = response
         )
 
+    async def hash(
+            self,
+            path: str,
+            algorithm: str = "sha256"
+        ) -> Response:
+        response = await self.client.get(
+            url = self.join_url(WORKSPACE_HASH_ROUTE, path),
+            params = {
+                "algorithm": algorithm,
+            }
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def du(
+            self,
+            path: str
+        ) -> Response:
+        response = await self.client.get(
+            url = self.join_url(WORKSPACE_DU_ROUTE, path)
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def tree(
+            self,
+            path: str,
+            max_depth: int = -1
+        ) -> Response:
+        response = await self.client.get(
+            url = self.join_url(WORKSPACE_TREE_ROUTE, path),
+            params = {
+                "max_depth": max_depth,
+            }
+        )
+        return Response(
+            httpx_response = response
+        )
+
     async def get_info(
             self,
             path: str
@@ -107,6 +167,28 @@ class WorkspaceClient(BaseClient):
             httpx_response = response
         )
 
+    async def is_file(
+            self,
+            path: str
+        ) -> Response:
+        response = await self.client.get(
+            url = self.join_url(WORKSPACE_IS_FILE_ROUTE, path)
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def is_dir(
+            self,
+            path: str
+        ) -> Response:
+        response = await self.client.get(
+            url = self.join_url(WORKSPACE_IS_DIR_ROUTE, path)
+        )
+        return Response(
+            httpx_response = response
+        )
+
     async def write_file(
             self,
             path: str,
@@ -123,6 +205,68 @@ class WorkspaceClient(BaseClient):
                     content_type
                 )
             }
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def append(
+            self,
+            path: str,
+            data: bytes,
+            content_type: str = "application/octet-stream"
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(WORKSPACE_APPEND_ROUTE, path),
+            content = data,
+            headers = {
+                "Content-Type": content_type,
+            }
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def truncate(
+            self,
+            path: str,
+            size: int
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(WORKSPACE_TRUNCATE_ROUTE, path),
+            params = {
+                "size": size,
+            }
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def touch(
+            self,
+            path: str
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(WORKSPACE_TOUCH_ROUTE, path)
+        )
+        return Response(
+            httpx_response = response
+        )
+
+    async def edit(
+            self,
+            path: str,
+            data: bytes,
+            start: int,
+            end: int
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(WORKSPACE_EDIT_ROUTE, path),
+            json = EditRequest(
+                start = start,
+                end = end,
+                data = base64.b64encode(data).decode()
+            ).model_dump(exclude_none = True)
         )
         return Response(
             httpx_response = response
@@ -169,6 +313,25 @@ class WorkspaceClient(BaseClient):
         return Response(
             httpx_response = response,
             model = CopyResult
+        )
+
+    async def copy_range(
+            self,
+            path: str,
+            destination: str,
+            start: int,
+            end: int
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(WORKSPACE_COPY_RANGE_ROUTE, path),
+            json = CopyRangeRequest(
+                destination = destination,
+                start = start,
+                end = end
+            ).model_dump(exclude_none = True)
+        )
+        return Response(
+            httpx_response = response
         )
 
     async def delete(

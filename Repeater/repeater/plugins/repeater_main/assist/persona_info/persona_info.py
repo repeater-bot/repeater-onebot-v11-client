@@ -42,7 +42,8 @@ from ..models import (
     GroupMemberInfo,
     BusinessCard
 )
-from ..namespace import MessageSource, Namespace
+from ..namespace import Namespace
+from ..scene import MessageSource, Scene
 from .enter_type import EnterType
 from .file_info import FileInfo
 from .cached_apis import CachedAPI
@@ -133,9 +134,34 @@ class PersonaInfo:
                 self._group_name = str(model_dump["group_name"])
             except KeyError:
                 self._group_name = None
+
+        self._namespace: Namespace
+        if self._source == MessageSource.GROUP:
+            self._namespace = Namespace(
+                mode = MessageSource.GROUP,
+                group_id = self._group_id,
+                user_id = self.user_id
+            )
+        else:
+            self._namespace = Namespace(
+                mode = MessageSource.PRIVATE,
+                user_id = self.user_id
+            )
+
+        self._scene: Scene
+        if self._source == MessageSource.GROUP:
+            self._scene = Scene(
+                source = MessageSource.GROUP,
+                id = self._group_id,
+            )
+        else:
+            self._scene = Scene(
+                source = MessageSource.PRIVATE,
+                id = self.user_id
+            )
         
         self._super_permissions_checker: PermissionChecker = PermissionChecker(storage_configs.super_permissions)
-        self._user_config_loader = UserConfigLoader(self.namespace)
+        self._user_config_loader = UserConfigLoader(self._namespace)
 
     def __repr__(self) -> str:
         args_map:  list[tuple[str, Any]] = [
@@ -266,7 +292,7 @@ class PersonaInfo:
             value = args,
             get_new_value_deep = lambda: copy.deepcopy(self._args) if self._args is not None else None,
             get_new_value_copy = lambda: self._args.copy() if self._args is not None else None,
-            get_new_value = lambda: self.args,
+            get_new_value = lambda: self._args,
             copydata = copydata,
             deepcopy = deepcopy
         )
@@ -312,10 +338,9 @@ class PersonaInfo:
             copydata = copydata,
             deepcopy = deepcopy
         )
-        instance._enter_type = self._enter_type
         return instance
 
-    async def from_reply_reversed_chain(
+    async def from_reversed_reply_chain(
             self,
             max_depth: int | None = None,
             break_chain: Callable[[PersonaInfo], bool] = lambda _: False,
@@ -369,7 +394,7 @@ class PersonaInfo:
         async for event in self.get_reply_chain(max_depth):
             instance = self.copy(
                 event = event,
-                args = None,
+                args = event.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             )
@@ -421,31 +446,36 @@ class PersonaInfo:
             self.copy(
                 bot = self.bot,
                 event = event,
-                args = None,
+                args = event.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             ) for event in messages
         ]
     
-    async def from_reply(self) -> PersonaInfo | None:
+    async def from_reply(self, msg_id: str | None = None) -> PersonaInfo | None:
         """
         从回复引用构建 PersonaInfo 实例
 
         注：解析时，它会默认消息段中只有一个 reply 消息段，
         如果有存在多个，则使用第一个
         """
-        event = await self.get_message_event()
-        reply_id: str | None = None
-        for message in event.message:
-            if message.type == "reply":
-                reply_id = message.data["id"]
-                break
-        if reply_id is None:
-            return None
+        if msg_id is None:
+            event = await self.get_message_event()
+            reply_id: str | None = None
+            for message in event.message:
+                if message.type == "reply":
+                    reply_id = message.data["id"]
+                    break
+            if reply_id is None:
+                return None
+        else:
+            reply_id = msg_id
+        
         reply_event = await self.get_message_event(message_id = int(reply_id))
-        persona_info = self.__class__(
+        persona_info = self.copy(
             bot = self.bot,
-            event = reply_event
+            event = reply_event,
+            args = reply_event.message,
         )
         return persona_info
 
@@ -466,11 +496,33 @@ class PersonaInfo:
         async for history in iter_message_history(self.cached_api, self.namespace, iter_step):
             instance = self.copy(
                 event = history,
-                args = None,
+                args = history.message,
                 copydata = copydata,
                 deepcopy = deepcopy
             )
             yield instance
+
+    async def from_forward_msgs(
+        self,
+        forward_msg_id: str | None = None,
+    ) -> list[list[PersonaInfo]]:
+        """
+        从转发消息获取 PersonaInfo
+
+        :return: PersonaInfo 列表
+        """
+        return [
+            [
+                self.copy(
+                    event = msg,
+                    args = msg.message
+                )
+                for msg in msgs
+            ]
+            for msgs in await self.get_forward_msgs(
+                forward_msg_id = forward_msg_id
+            )
+        ]
     
     @property
     def enter_type(self) -> EnterType:
@@ -526,6 +578,41 @@ class PersonaInfo:
         当前消息是否为私聊消息
         """
         return self.source == MessageSource.PRIVATE
+
+    async def is_tome(self) -> bool:
+        """
+        当前消息是否为 @ 本 bot 的消息
+        """
+        for message in self.message:
+            if message.type == "at" and message.data["qq"] == self.self_id:
+                return True
+            if message.type == "reply":
+                reply_msg = await self.get_message_event(
+                    message_id = message.data["id"]
+                )
+                if reply_msg is None:
+                    continue
+
+                if reply_msg.user_id == self.self_id:
+                    return True
+        return False
+
+    @property
+    def tome(self) -> bool:
+        """
+        检查当前消息事件中是否包含 @ 本 bot
+        """
+        return self.event.is_tome()
+
+    @property
+    def has_at_self(self) -> bool:
+        """
+        当前消息是否包含 @ 本 bot
+        """
+        for message in self.message:
+            if message.type == "at" and message.data["qq"] == self.self_id:
+                return True
+        return False
     
     @property
     def self_id(self) -> str:
@@ -660,17 +747,7 @@ class PersonaInfo:
         """
         当前用户所在命名空间
         """
-        if self._source == MessageSource.GROUP:
-            return Namespace(
-                mode = MessageSource.GROUP,
-                group_id = self._group_id,
-                user_id = self.user_id
-            )
-        else:
-            return Namespace(
-                mode = MessageSource.PRIVATE,
-                user_id = self.user_id
-            )
+        return self._namespace
     
     @property
     def namespace_str(self) -> str:
@@ -678,6 +755,20 @@ class PersonaInfo:
         当前用户所在命名空间字符串
         """
         return self.namespace.namespace_str
+
+    @property
+    def scene(self) -> Scene:
+        """
+        当前用户所在场景
+        """
+        return self._scene
+
+    @property
+    def scene_str(self) -> str:
+        """
+        当前用户所在场景字符串
+        """
+        return self.scene.scene_str
     
     @property
     def private_namespace(self) -> Namespace:
@@ -892,9 +983,7 @@ class PersonaInfo:
         消息中提及的 user_id 列表（不包括自己）
         """
         at_list: list[str] = []
-        if self._message_event is None:
-            return at_list
-        for segment in self._message_event.message:
+        for segment in self.message:
             if segment.type == "at":
                 mentioned_id = segment.data["qq"]
                 # 检查是否@的是非机器人用户
@@ -908,9 +997,7 @@ class PersonaInfo:
         消息中提及的 user_id 列表
         """
         at_list: list[str] = []
-        if self._message_event is None:
-            return at_list
-        for segment in self._message_event.message:
+        for segment in self.message:
             if segment.type == "at":
                 at_list.append(segment.data["qq"])
         return at_list
@@ -977,6 +1064,18 @@ class PersonaInfo:
             if msg.type == "record":
                 urls.append(msg.data["url"])
         return urls
+
+    def get_forward_ids(self) -> list[str]:
+        """
+        获取消息内的转发消息段
+
+        :return: 转发消息的 ID 列表
+        """
+        urls: list[str] = []
+        for msg in self.message:
+            if msg.type == "forward":
+                urls.append(msg.data["id"])
+        return urls
     
     def get_file_infos(self) -> list[FileInfo]:
         """
@@ -988,7 +1087,7 @@ class PersonaInfo:
         for msg in self.message:
             if msg.type == "file":
                 urls.append(
-                    FileInfo(**msg.data)
+                    FileInfo.model_validate(msg.data)
                 )
         return urls
     
@@ -1021,7 +1120,8 @@ class PersonaInfo:
         try:
             chain = get_reply_chain(
                 bot = self._cached_api,
-                message = message,
+                event = self.event,
+                args = self.args,
                 max_depth = max_depth
             )
             async for msg in chain:
@@ -1040,20 +1140,32 @@ class PersonaInfo:
         :return: 回复消息
         """
         return await get_reply_msgs(
-            self._cached_api,
-            message if message is not None else self.message
+            bot = self._cached_api,
+            event = self.event,
+            args = self.args
         )
     
-    async def get_forward_msgs(self) -> list[MessageEvent]:
+    async def get_forward_msgs(self, forward_msg_id: str | None = None) -> list[list[MessageEvent]]:
         """
         获取转发消息
 
         :return: 转发消息
         """
-        return await get_forward_msgs(
-            self._cached_api,
-            self.message
-        )
+        forward_msgs: list[list[MessageEvent]] = []
+        if forward_msg_id is None:
+            for forward_msg_id in self.get_forward_ids():
+                forward_msg = await get_forward_msgs(
+                    self._cached_api,
+                    forward_msg_id
+                )
+                forward_msgs.append(forward_msg)
+        else:
+            forward_msg = await get_forward_msgs(
+                self._cached_api,
+                forward_msg_id
+            )
+            forward_msgs.append(forward_msg)
+        return forward_msgs
     
     @staticmethod
     def generates_text_from_messages_list(messages: Iterable[dict | MessageEvent]) -> str:

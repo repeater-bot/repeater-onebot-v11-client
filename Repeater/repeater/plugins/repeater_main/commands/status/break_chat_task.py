@@ -32,7 +32,7 @@ class BreakChatTask(CommandPackage):
         user_configs = await persona_info.get_user_configs()
         client = ChatClient(persona_info, user_configs)
         response = await client.break_chat_task(task_id if task_id else None)
-        if response.code == 200:
+        if response:
             break_response = response.get_data()
             if break_response is None:
                 await send_msg.send_error("Failed parsing response data.")

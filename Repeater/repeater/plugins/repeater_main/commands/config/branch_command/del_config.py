@@ -3,8 +3,8 @@ from ....command_register import CommandCaller
 from ..._bases import DeleteBranch, UserdataCmdsType
 
 @CommandCaller.register
-class DelConfig(DeleteBranch):
-    cmd = "delConfig"
+class DeleteConfig(DeleteBranch):
+    cmd = "deleteConfig"
     aliases = {
         "dcfg",
         "DCFG",

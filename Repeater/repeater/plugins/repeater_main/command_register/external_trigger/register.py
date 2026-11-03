@@ -1,8 +1,18 @@
-from .callback import CALLBACK_TYPE
+from typing import (
+    TypeVar,
+    Generic,
+    Hashable
+)
+from .callback import (
+    ETCCallbackType
+)
 
-class Register:
+KEY = TypeVar("KEY", bound = Hashable)
+CALLBACK_TYPE = TypeVar("CALLBACK_TYPE")
+
+class Register(Generic[KEY, CALLBACK_TYPE]):
     def __init__(self):
-        self._commands: dict[str, CALLBACK_TYPE] = {}
+        self._commands: dict[KEY, CALLBACK_TYPE] = {}
 
     def __len__(self) -> int:
         return len(self._commands)
@@ -10,38 +20,38 @@ class Register:
     def __iter__(self):
         return iter(self._commands.values())
 
-    def __contains__(self, id: str) -> bool:
+    def __contains__(self, id: KEY) -> bool:
         return id in self._commands
 
-    def __getitem__(self, id: str) -> CALLBACK_TYPE:
+    def __getitem__(self, id: KEY) -> CALLBACK_TYPE:
         return self._commands[id]
 
-    def __setitem__(self, id: str, command: CALLBACK_TYPE) -> None:
+    def __setitem__(self, id: KEY, command: CALLBACK_TYPE) -> None:
         self.register(id, command)
 
-    def __delitem__(self, id: str) -> None:
+    def __delitem__(self, id: KEY) -> None:
         del self._commands[id]
 
-    def keys(self) -> list[str]:
+    def keys(self) -> list[KEY]:
         return list(self._commands.keys())
 
     def values(self) -> list[CALLBACK_TYPE]:
         return list(self._commands.values())
 
-    def items(self) -> list[tuple[str, CALLBACK_TYPE]]:
+    def items(self) -> list[tuple[KEY, CALLBACK_TYPE]]:
         return list(self._commands.items())
     
-    def register(self, id: str, command: CALLBACK_TYPE) -> None:
+    def register(self, id: KEY, command: CALLBACK_TYPE) -> None:
         """Register a command to the register."""
         self._commands[id] = command
 
-    def unregister(self, id: str) -> None:
+    def unregister(self, id: KEY) -> None:
         """Unregister a command from the register."""
         if id in self._commands:
             self._commands.pop(id)
 
-    def get(self, id: str) -> CALLBACK_TYPE | None:
+    def get(self, id: KEY) -> CALLBACK_TYPE | None:
         """Get a command from the register."""
         return self._commands.get(id)
 
-register_external_trigger = Register()
+register_external_trigger: Register[str, ETCCallbackType] = Register()

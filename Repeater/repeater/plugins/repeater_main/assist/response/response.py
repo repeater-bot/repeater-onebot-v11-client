@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from typing import Generic, TypeVar, Type, Any
-from httpx import Response as HTTPXResponse
+from httpx import Headers, Response as HTTPXResponse
 from pydantic import BaseModel
 from .error_response import ErrorResponse
 from .exception_info import ExceptionInfo
@@ -44,6 +44,12 @@ class Response(Generic[T_Response]):
         if self._httpx_response is None:
             raise ValueError("response not initialized")
         return self._httpx_response.content
+
+    @property
+    def headers(self) -> Headers:
+        if self._httpx_response is None:
+            raise ValueError("response not initialized")
+        return self._httpx_response.headers
     
     @property
     def exception_info(self) -> ExceptionInfo | None:
@@ -72,14 +78,14 @@ class Response(Generic[T_Response]):
         if self._model is not None:
             if issubclass(self._model, BaseModel):
                 data: Any = self.json()
-                return self._model(**data)
+                return self._model.model_validate(data)
         
         return None
     
     def get_error(self) -> ErrorResponse | None:
         if self.code >= 400:
             try:
-                return ErrorResponse(**self.json())
+                return ErrorResponse.model_validate(self.json())
             except Exception:
                 return None
     
@@ -93,5 +99,5 @@ class Response(Generic[T_Response]):
 
     def __bool__(self) -> bool:
         if self.initialized:
-            return self.code == 200
+            return self.code < 400
         return False

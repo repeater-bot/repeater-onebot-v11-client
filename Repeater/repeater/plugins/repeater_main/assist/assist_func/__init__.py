@@ -1,7 +1,9 @@
 from .get_first_mentioned_user import get_first_mentioned_user
 from .image_to_text import image_to_text
 from .get_reply_msgs import get_reply_msgs
-from .get_forward_msgs import get_forward_msgs
+from .get_forward_msgs import (
+    get_forward_msgs
+)
 from .get_message_event import get_message_event
 from .generates_text_from_messages_list import generates_text_from_messages_list
 from .get_reply_chain import get_reply_chain
@@ -25,6 +27,9 @@ from .empty_message_event import make_empty_message_event
 from .format_time_duration import (
     format_time_duration_ns,
     format_time_duration
+)
+from .format_size_duration import (
+    format_size_duration
 )
 from .make_message_event import make_message_event
 from .get_message_history import (

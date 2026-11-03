@@ -8,8 +8,10 @@ from ..assist import (
     PersonaInfo,
     SendMsg,
     SendingTarget,
+    Scene,
     Namespace,
-    Variables
+    Variables,
+    format_time_duration_ns
 )
 from ..cmd_info import CmdTypes
 from ..client_configs import storage_configs
@@ -23,6 +25,7 @@ from typing import (
     TypeVar,
     Union,
     NoReturn,
+    Hashable,
     Generator
 )
 from nonebot import on_command, on_message
@@ -42,7 +45,7 @@ from .objects import (
     PipePackage,
     StatusPackage,
 )
-from .external_trigger import register_external_trigger, et_server, HandlerResult
+from .external_trigger import register_external_trigger, et_server, ETCHandlerResult
 from contextvars import ContextVar
 
 T_Handler_Result = TypeVar("T_Handler_Result")
@@ -75,7 +78,7 @@ class CommandCaller:
 
     # 消息监听器
     message_listener: dict[uuid.UUID, ListenerPackage] = {}
-    message_listener_map: dict[Namespace | str, set[uuid.UUID]] = {}
+    message_listener_map: dict[Namespace | Scene, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 信件监听器
@@ -83,20 +86,20 @@ class CommandCaller:
     # PS：信件是一种命令对命令的通信通道
     # 通过提交命名信件与监听命名信件来实现通信并传递数据
     letters_listener: dict[uuid.UUID, LettersPackage[Any]] = {}
-    letters_listener_map: dict[str, uuid.UUID] = {}
+    letters_listener_map: dict[Hashable, uuid.UUID] = {}
     letters_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 管道系统
     # 通过管道实现命令对命令的全双工通信
     pipes: dict[uuid.UUID, PipePackage[Any, Any]] = {}
-    pipe_map: dict[str, uuid.UUID] = {}
+    pipe_map: dict[Hashable, uuid.UUID] = {}
     pipe_lock: asyncio.Lock = asyncio.Lock()
 
     # 状态系统
     # 通过状态实现命令对命令的事件通信
     # 与信件类似但不可传递数据，只能传递状态
     statuses: dict[uuid.UUID, StatusPackage] = {}
-    statuses_map: dict[str, uuid.UUID] = {}
+    statuses_map: dict[Hashable, uuid.UUID] = {}
     status_lock: asyncio.Lock = asyncio.Lock()
 
     # 外部触发器服务器循环挂载位置
@@ -125,7 +128,12 @@ class CommandCaller:
     @classmethod
     async def on_startup(cls):
         """
-        Run on startup.
+        Called by the NoneBot on_startup driver event wired in lifespan.py.
+
+        It starts the external trigger server task when
+        storage_configs.external_trigger_server.enabled is set, then broadcasts
+        on_framework_startup to every registered package concurrently; exceptions from those hooks
+        are swallowed by asyncio.gather(..., return_exceptions=True).
         """
         logger.info(
             "startup..."
@@ -159,7 +167,12 @@ class CommandCaller:
     @classmethod
     async def on_shutdown(cls):
         """
-        Run on shutdown.
+        Called by the NoneBot on_shutdown driver event wired in lifespan.py.
+
+        It stops the external trigger server task if it was started, broadcasts
+        on_framework_shutdown to every registered package concurrently, then calls close_packages(),
+        which cancels listeners, running handlers, pipes and statuses and clears the variable and
+        call indexes. Hook exceptions are swallowed by asyncio.gather(..., return_exceptions=True).
         """
         logger.info(
             "shutdown..."
@@ -190,7 +203,11 @@ class CommandCaller:
     @classmethod
     async def on_bot_connect(cls, bot: Bot):
         """
-        Run on bot connect.
+        Called by the NoneBot on_bot_connect driver event wired in lifespan.py.
+
+        It registers the external-trigger callback for bot.self_id first, then broadcasts
+        on_bot_connect(bot) to every registered package concurrently; hook exceptions are swallowed
+        by asyncio.gather(..., return_exceptions=True).
 
         :param bot: bot instance
         """
@@ -205,7 +222,7 @@ class CommandCaller:
                 event: MessageEvent,
                 args: Message | None,
                 output: bool = True
-            ) -> HandlerResult:
+            ) -> ETCHandlerResult:
             nonlocal cls, bot
             package = cls.match_trigger_or_component(handler)
                 
@@ -222,7 +239,7 @@ class CommandCaller:
             if isinstance(result, SubCmdExit):
                 retcode = result.code
 
-            return HandlerResult(
+            return ETCHandlerResult(
                 messages,
                 rendered_texts,
                 retcode
@@ -252,7 +269,11 @@ class CommandCaller:
     @classmethod
     async def on_bot_disconnect(cls, bot: Bot):
         """
-        bot disconnect.
+        Called by the NoneBot on_bot_disconnect driver event wired in lifespan.py.
+
+        It unregisters the external-trigger callback for bot.self_id first, then broadcasts
+        on_bot_disconnect(bot) to every registered package concurrently; hook exceptions are
+        swallowed by asyncio.gather(..., return_exceptions=True).
 
         :param bot: bot instance
         """
@@ -429,6 +450,19 @@ class CommandCaller:
             return cls.runnings.get(task_id)
 
     @classmethod
+    async def get_global_running(cls, task_id: uuid.UUID) -> RunningPackage | None:
+        """
+        Get running task.
+
+        :param task_id: task id
+        :return: running task
+        """
+        async with cls.running_lock:
+            if task_id not in cls.runnings:
+                return None
+            return cls.runnings.get(task_id)
+        
+    @classmethod
     async def another_running(cls, namespace: Namespace | None = None) -> set[uuid.UUID]:
         """
         Gets other tasks (not including itself) of the same type as this command that are running
@@ -443,9 +477,27 @@ class CommandCaller:
         async with cls.running_lock:
             runnings = cls.running_packages.get(type(identity), set())
             if namespace is not None:
-                runnings = runnings.intersection(cls.running_map.get(namespace, set()))
-            runnings.discard(task_id)
-            return runnings
+                output_runnings = runnings.intersection(cls.running_map.get(namespace, set()))
+            else:
+                output_runnings = runnings.copy()
+            output_runnings.discard(task_id)
+            return output_runnings
+
+    @classmethod
+    async def all_this_running(cls, package: Type[CommandPackage[Any]], namespace: Namespace | None = None) -> set[uuid.UUID]:
+        """
+        Gets all tasks of the same type as this command that are running
+
+        :param package: package
+        :return: set of running tasks
+        """
+        async with cls.running_lock:
+            runnings = cls.running_packages.get(package, set())
+            if namespace is not None:
+                output_runnings = runnings.intersection(cls.running_map.get(namespace, set()))
+            else:
+                output_runnings = runnings.copy()
+            return output_runnings
 
     @classmethod
     def match_trigger_or_component(cls, string: str | tuple[str, ...]) -> Type[CommandPackage[Any]]:
@@ -551,25 +603,23 @@ class CommandCaller:
     @classmethod
     async def wait_message(
         cls,
-        namespace: Namespace,
+        target: Namespace | Scene,
         timeout: int | float | None = None,
-        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
-        listen_group: bool = False
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> PersonaInfo:
         """
         Wait for the message.
 
-        :param namespace: The target of listening.
+        :param target: The target of listening.
         :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
         """
         future = await cls.message_future(
-            namespace = namespace,
+            target = target,
             timeout = timeout,
-            block_propagation = block_propagation,
-            listen_group = listen_group
+            block_propagation = block_propagation
         )
         result = await future
         return result
@@ -577,15 +627,14 @@ class CommandCaller:
     @classmethod
     async def message_future(
         cls,
-        namespace: Namespace,
+        target: Namespace | Scene,
         timeout: int | float | None = None,
-        block_propagation: bool | Callable[[PersonaInfo], bool] = False,
-        listen_group: bool = False
+        block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> ListenerPackage:
         """
         Create a Future to wait for the message.
 
-        :param namespace: The target of listening.
+        :param target: The target of listening.
         :param timeout: The timeout of waiting.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
@@ -601,7 +650,7 @@ class CommandCaller:
 
         listen_package = ListenerPackage(
             future = future,
-            target = namespace,
+            target = target,
             id = listener_id,
             sponsor = source,
             block_propagation = block_propagation
@@ -609,19 +658,13 @@ class CommandCaller:
 
         async with cls.message_listener_lock:
             logger.info(
-                "{handler}({task_id}) Create Wait {namespace} Message Task: {future}",
+                "{handler}({task_id}) Create Wait {target} Message Task: {future}",
                 handler = identity.component,
                 task_id = source,
-                namespace = namespace.namespace_str,
+                target = str(target),
                 future = repr(future),
             )
-
-            if listen_group:
-                if namespace.group_id is None:
-                    raise ValueError(f"Namespace {namespace} is not have group_id")
-                cls.message_listener_map.setdefault(namespace.group_id, set()).add(listener_id)
-            else:
-                cls.message_listener_map.setdefault(namespace, set()).add(listener_id)
+            cls.message_listener_map.setdefault(target, set()).add(listener_id)
             cls.message_listener[listener_id] = listen_package
 
         if timeout is not None:
@@ -636,26 +679,15 @@ class CommandCaller:
                 except asyncio.TimeoutError:
                     async with cls.message_listener_lock:
                         logger.info(
-                            "{handler}({task_id}) Timeout Wait {namespace} Message Task: {future}",
+                            "{handler}({task_id}) Timeout Wait {target} Message Task: {future}",
                             handler = identity.component,
                             task_id = source,
-                            namespace = namespace.namespace_str,
+                            target = str(target),
                             future = repr(future),
                         )
-                        # 只摘掉**自己**这一条：按 namespace / group_id 整键 pop，会把同一个
-                        # 群里别的监听者（例如旁听的长 Handler）一并抹掉，而它们的 Future
-                        # 还悬着 —— 那些 Handler 从此静默地再也收不到消息。
                         listener = cls.message_listener.pop(listener_id, None)
                         if listener is not None:
-                            for key in (namespace, namespace.group_id):
-                                if key is None:
-                                    continue
-                                listener_ids = cls.message_listener_map.get(key)
-                                if listener_ids is None:
-                                    continue
-                                listener_ids.discard(listener_id)
-                                if not listener_ids:
-                                    cls.message_listener_map.pop(key, None)
+                            cls.message_listener_map.pop(target, None)
                             # 与 report_message 抢锁时消息可能刚好先到；已投递就不再写异常，
                             # 也避免对已完成的 Future 调 set_exception。
                             if not listener.done():
@@ -669,7 +701,38 @@ class CommandCaller:
         return listen_package
 
     @classmethod
-    async def create_letters(cls, name: str) -> LettersPackage:
+    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+        """
+        Cancel the wait message listener.
+
+        :param listener_id: The listener id.
+        :return: Whether the cancel is successful.
+        """
+        async with cls.message_listener_lock:
+            logger.info(
+                "Cancel Wait Message Task {listener_id}",
+                listener_id = listener_id,
+            )
+            if listener_id in cls.message_listener:
+                listener = cls.message_listener.get(listener_id)
+                if listener is not None:
+                    listener.cancel()
+                    listener_map = cls.message_listener_map.get(listener.target)
+                    if listener_map is not None:
+                        listener_map.discard(listener_id)
+                        if not listener_map:
+                            cls.message_listener_map.pop(listener.target, None)
+                            
+                cls.message_listener.pop(listener_id, None)
+                logger.info(
+                    "Cancel listener: {listener_id}",
+                    listener_id = listener_id,
+                )
+                return True
+        return False
+
+    @classmethod
+    async def create_letters(cls, name: Hashable) -> LettersPackage:
         """
         Create a letters package.
 
@@ -697,7 +760,21 @@ class CommandCaller:
         return letters_package
 
     @classmethod
-    async def submit_letters(cls, name: str, value: Any) -> bool:
+    async def exists_letters(cls, name: Hashable) -> bool:
+        """
+        Check whether the letters package exists.
+
+        :param name: The name of the letters package.
+        :return: Whether the letters package exists.
+        """
+        async with cls.letters_listener_lock:
+            letter_id = cls.letters_listener_map.get(name)
+            if letter_id is None:
+                return False
+            return cls.letters_listener.get(letter_id) is not None
+
+    @classmethod
+    async def submit_letters(cls, name: Hashable, value: Any) -> bool:
         """
         Submit a letters.
 
@@ -717,7 +794,7 @@ class CommandCaller:
             return False
 
     @classmethod
-    async def open_pipe(cls, name: str) -> PipePackage[Any, Any]:
+    async def open_pipe(cls, name: Hashable) -> PipePackage[Any, Any]:
         """
         Open a pipe package.
 
@@ -756,7 +833,21 @@ class CommandCaller:
         return pipe_package
 
     @classmethod
-    async def close_pipe(cls, name: str) -> bool:
+    async def exists_pipe(cls, name: Hashable) -> bool:
+        """
+        Check whether the pipe package exists.
+
+        :param name: The name of the pipe package.
+        :return: Whether the pipe package exists.
+        """
+        async with cls.pipe_lock:
+            pipe_id = cls.pipe_map.get(name)
+            if pipe_id is None:
+                return False
+            return cls.pipes.get(pipe_id) is not None
+
+    @classmethod
+    async def close_pipe(cls, name: Hashable) -> bool:
         """
         Close a pipe package.
 
@@ -782,7 +873,7 @@ class CommandCaller:
             return False
 
     @classmethod
-    async def create_status(cls, name: str) -> StatusPackage:
+    async def create_status(cls, name: Hashable) -> StatusPackage:
         """
         Create a status package.
 
@@ -799,7 +890,8 @@ class CommandCaller:
         status_package = StatusPackage(
             future = future,
             status_id = status_id,
-            sponsor = sponsor
+            sponsor = sponsor,
+            name = name,
         )
 
         async with cls.status_lock:
@@ -809,7 +901,7 @@ class CommandCaller:
         return status_package
 
     @classmethod
-    async def wait_status(cls, name: str, namespace: Namespace) -> None:
+    async def wait_status(cls, name: Hashable) -> None:
         """
         Wait a status.
 
@@ -824,7 +916,7 @@ class CommandCaller:
         await status_package.wait_finish()
     
     @classmethod
-    async def finish_status(cls, name: str) -> bool:
+    async def finish_status(cls, name: Hashable) -> bool:
         """
         Finish a status.
 
@@ -842,41 +934,35 @@ class CommandCaller:
             return True
 
     @classmethod
-    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+    async def check_status(cls, name: Hashable) -> bool:
         """
-        Cancel the wait message listener.
+        Check a status.
 
-        :param listener_id: The listener id.
-        :return: Whether the cancel is successful.
+        :param name: The name of the status.
+        :return: Whether the status is active.
         """
-        async with cls.message_listener_lock:
-            logger.info(
-                "Cancel Wait Message Task {listener_id}",
-                listener_id = listener_id,
-            )
-            if listener_id in cls.message_listener:
-                listener = cls.message_listener.get(listener_id)
-                if listener is not None:
-                    listener.cancel()
-                    listener_map = cls.message_listener_map.get(listener.target)
-                    if listener_map is not None:
-                        listener_map.discard(listener_id)
-                        if not listener_map:
-                            cls.message_listener_map.pop(listener.target, None)
-                    if listener.target.group_id is not None:
-                        group_listener_map = cls.message_listener_map.get(listener.target.group_id)
-                        if group_listener_map is not None:
-                            group_listener_map.discard(listener_id)
-                            if not group_listener_map:
-                                cls.message_listener_map.pop(listener.target.group_id, None)
-                            
-                cls.message_listener.pop(listener_id, None)
-                logger.info(
-                    "Cancel listener: {listener_id}",
-                    listener_id = listener_id,
-                )
-                return True
-        return False
+        async with cls.status_lock:
+            status_id = cls.statuses_map.get(name)
+            if status_id is None:
+                raise ValueError("The status is not found.")
+            status_package = cls.statuses.get(status_id)
+            if status_package is None:
+                raise RuntimeError("The status is not found.")
+            return not status_package.is_finished()
+
+    @classmethod
+    async def exists_status(cls, name: Hashable) -> bool:
+        """
+        Check whether a status exists.
+
+        :param name: The name of the status.
+        :return: Whether the status exists.
+        """
+        async with cls.status_lock:
+            status_id = cls.statuses_map.get(name)
+            if status_id is None:
+                return False
+            return cls.statuses.get(status_id) is not None
 
     @classmethod
     async def run_handle(
@@ -888,6 +974,7 @@ class CommandCaller:
         debug_mode: bool | None = None,
         created: asyncio.Future[RunningPackage[T_Handler_Result]] | None = None
     ) -> T_Handler_Result | Any | SubCmdBreaked | None | NoReturn:
+        package_type = type(package)
         try:
             task = asyncio.create_task(
                 cls.enter_handler(
@@ -916,7 +1003,7 @@ class CommandCaller:
                     set()
                 ).add(task_id)
                 cls.running_packages.setdefault(
-                    type(package),
+                    package_type,
                     set()
                 ).add(task_id)
         except Exception as e:
@@ -938,11 +1025,11 @@ class CommandCaller:
                     user_running.discard(task_id)
                     if not user_running:
                         cls.running_map.pop(persona_info.namespace, None)
-                if type(package) in cls.running_packages:
-                    package_running = cls.running_packages[type(package)]
+                if package_type in cls.running_packages:
+                    package_running = cls.running_packages[package_type]
                     package_running.discard(task_id)
                     if not package_running:
-                        cls.running_packages.pop(type(package), None)
+                        cls.running_packages.pop(package_type, None)
     
     @classmethod
     async def enter_handler(
@@ -971,7 +1058,8 @@ class CommandCaller:
 
         cls._identity.set(package)
         cls._task_id.set(task_id)
-        
+
+        start_time = time.perf_counter_ns()
         result = await cls._enter_handler(
             task_id,
             package,
@@ -979,6 +1067,8 @@ class CommandCaller:
             send_msg,
             debug_mode,
         )
+        end_time = time.perf_counter_ns()
+
         if isinstance(result, type):
             if issubclass(result, SubCmdExit):
                 result = result()
@@ -988,10 +1078,11 @@ class CommandCaller:
         else:
             result_code = 0
         
-        logger.info(
-            "Handler {handler}[{task_id}] result: {result}({type}), return code: {code}, debug: {debug_mode}",
+        logger.success(
+            "Handler {handler}[{task_id}] time: {time}, result: {result}({type}), return code: {code}, debug: {debug_mode}",
             handler = package.component,
             task_id = task_id,
+            time = f"{(end_time - start_time) / 1e6}ms({format_time_duration_ns(end_time - start_time, use_abbreviation=True)})",
             result = repr(result),
             code = result_code,
             type = type(result).__name__,
@@ -1077,7 +1168,7 @@ class CommandCaller:
             finally:
                 await package.handler_exit(persona_info, send_msg)
         except BreakHandler as e:
-            return SubCmdBreaked(e.code)
+            return await package.on_exception_parser_error(e, persona_info, send_msg)
 
     @classmethod
     async def timed_scheduling(
@@ -1354,13 +1445,17 @@ class CommandCaller:
         :param package: CommandPackage
         :return: CommandPackage
         """
-        return cls._register(package)
+        return cls._register(
+            package,
+            args = (),
+            kwargs = {}
+        )
 
     @classmethod
     def register_with_args(
         cls,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Callable[[Type[CommandPackage[T_Handler_Result]]], type[CommandPackage[T_Handler_Result]]]:
         """
         Register a command with args
@@ -1380,21 +1475,71 @@ class CommandCaller:
             :return: CommandPackage
             """
             nonlocal args, kwargs
-            return cls._register(package, *args, **kwargs)
+            return cls._register(
+                package,
+                args = args,
+                kwargs = kwargs
+            )
         return _decorator
     
     @classmethod
-    def _register(cls, package: Type[CommandPackage[T_Handler_Result]], *args: Any, **kwargs: Any) -> Type[CommandPackage[T_Handler_Result]]:
+    def register_with_all_init_args(
+        cls,
+        *args,
+        **kwargs,
+    ) -> Callable[[Type[CommandPackage[T_Handler_Result]]], type[CommandPackage[T_Handler_Result]]]:
+        """
+        Register a command with all init args
+
+        :param args: args
+        :param kwargs: kwargs
+        :return: a decorator that registers a command with args
+        """
+        def _decorator(package: Type[CommandPackage[T_Handler_Result]]) -> Type[CommandPackage[T_Handler_Result]]:
+            """
+            Register a command with args
+
+            WARNING: This is a decorator, so if you get this function, pass a command class into it.
+            It will pass the data to the registry through the closure.
+
+            :param package: CommandPackage
+            :return: CommandPackage
+            """
+            nonlocal args, kwargs
+            return cls._register(
+                package,
+                args = args,
+                kwargs = kwargs,
+                init_only = False
+            )
+        return _decorator
+    
+    @classmethod
+    def _register(
+        cls,
+        package: Type[CommandPackage[T_Handler_Result]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        init_only: bool = True
+    ) -> Type[CommandPackage[T_Handler_Result]]:
         """
         Register a command
 
         :param package: CommandPackage Type
+        :param args: args
+        :param kwargs: kwargs
+        :param init_only: if True, only init args are used
         :return: CommandPackage Type
         """
         if package.enabled:
             register_start_time = time.perf_counter_ns()
             try:
-                package_instance, matcher, handler = cls._make_pack(package, *args, **kwargs)
+                package_instance, matcher, handler = cls._make_pack(
+                    package,
+                    args = args,
+                    kwargs = kwargs,
+                    init_only = init_only
+                )
             except Exception as e:
                 package.on_reg_failed(*sys.exc_info())
                 raise # Make sure the follow-up will not be carried out.
@@ -1405,7 +1550,10 @@ class CommandCaller:
                 matcher = matcher,
                 handler = handler
             )
-            package_instance.__post_init__()
+            if init_only:
+                package_instance.__post_init__()
+            else:
+                package_instance.__post_init__(*args, **kwargs)
             package_instance.__time_for_registered__ = time.time_ns()
             register_end_time = time.perf_counter_ns()
             package_instance.__time_for_registered_monotonic__ = register_end_time
@@ -1421,8 +1569,9 @@ class CommandCaller:
     def _make_pack(
         cls,
         package: Type[CommandPackage[T_Handler_Result]],
-        *args: Any,
-        **kwargs: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        init_only: bool = True
     )  -> tuple[
         CommandPackage[T_Handler_Result], # package_instance
         type[Matcher], # matcher
@@ -1445,16 +1594,20 @@ class CommandCaller:
         :param package: Package class
         :param args: Package class initialization parameters
         :param kwargs: Package class initialization parameters
+        :param init_only: if True, only init args are used
         :return: package_instance, matcher, handler
         """
         package.on_before_instantiate()
 
         if package.__raw_new__ is None:
             package_raw_new = package.__new__
-            def package_new(cls: Type[CommandPackage[T_Handler_Result]], *args: Any, **kwargs: Any):
-                nonlocal package_raw_new
-                package_instance = package_raw_new(cls, *args, **kwargs)
-                package_instance.__pre_init__()
+            def package_new(cls: Type[CommandPackage[T_Handler_Result]], *new_args: Any, **new_kwargs: Any):
+                nonlocal package_raw_new, args, kwargs, init_only
+                package_instance = package_raw_new(cls, *new_args, **new_kwargs)
+                if init_only:
+                    package_instance.__pre_init__()
+                else:
+                    package_instance.__pre_init__(*args, **kwargs)
                 return package_instance
             package.__new__ = package_new
             package.__raw_new__ = package_raw_new
@@ -1786,7 +1939,7 @@ class CommandCaller:
     def _submit_message(
         cls,
         task_ids: set[uuid.UUID],
-        persona_info: PersonaInfo
+        persona_info: PersonaInfo,
     ) -> list[ListenerPackage]:
         listeners: list[ListenerPackage] = []
         for listener_id in task_ids:
@@ -1808,6 +1961,7 @@ class CommandCaller:
         :param persona_info: The `PersonaInfo` object of the message
         """
         namespace = persona_info.namespace
+        scene = persona_info.scene
         async with cls.message_listener_lock:
             listeners: list[ListenerPackage] = []
             if namespace in cls.message_listener_map:
@@ -1820,16 +1974,15 @@ class CommandCaller:
                         )
                     )
 
-            if persona_info.group_id is not None:
-                if persona_info.group_id in cls.message_listener_map:
-                    listener_ids = cls.message_listener_map.pop(persona_info.group_id, None)
-                    if listener_ids is not None:
-                        listeners.extend(
-                            cls._submit_message(
-                                task_ids = listener_ids,
-                                persona_info = persona_info
-                            )
+            if scene in cls.message_listener_map:
+                listener_ids = cls.message_listener_map.pop(scene, None)
+                if listener_ids is not None:
+                    listeners.extend(
+                        cls._submit_message(
+                            task_ids = listener_ids,
+                            persona_info = persona_info
                         )
+                    )
 
             for listener in listeners:
                 if not allow_block_propagation:

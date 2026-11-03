@@ -32,3 +32,6 @@
 | `asynchronously`           | `async`  | `Asynchronously`          | 4.10.0.0       | 异步执行                       | 与 `bypass` 相同                            | 与 `bypass` 命令相同，但会返回任务 ID，可以用于其他操作 |
 | `wait`                     | `wt`     | `Wait`                    | 4.10.0.0       | 等待任务结束                   | 任务 ID                                    | 等待任务结束，并透传返回值 |
 | `renderToText`             | `rtt`    | `RenderToText`            | 4.10.1.0       | 获取渲染的文本并输出纯文本       | 格式为：命令 参数                          | 获取渲染的文本并输出纯文本 |
+| `heatLoad`                 | `hl`     | `HeatLoad`                | 4.10.10.2      | 热加载                         | 模块名                                     | 热加载模块 |
+| `heatUnload`               | `hu`     | `HeatUnload`              | 4.10.10.2      | 热卸载                         | 模块名                                     | 热卸载模块（只会删除注册表，不会从 Python 解释器的缓存中删除模块） |
+| `heatReg`                  | `hr`     | `HeatReg`                 | 4.10.10.2      | 热注册                         | 类路径                                     | 传入类的路径，在运行时注册该命令 |

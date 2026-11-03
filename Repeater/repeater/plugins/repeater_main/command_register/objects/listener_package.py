@@ -13,7 +13,7 @@ from types import (
 )
 
 from dataclasses import dataclass
-from ...assist import PersonaInfo, Namespace
+from ...assist import PersonaInfo, Scene, Namespace
 
 @dataclass
 class ListenerPackage(Awaitable[PersonaInfo]):
@@ -22,8 +22,8 @@ class ListenerPackage(Awaitable[PersonaInfo]):
     """
     future: asyncio.Future[PersonaInfo]
     """Waiting for a PersonaInfo."""
-    target: Namespace
-    """Target namespace."""
+    target: Scene | Namespace
+    """Target scene or namespace."""
     id: uuid.UUID
     """Package listener_id."""
     sponsor: uuid.UUID

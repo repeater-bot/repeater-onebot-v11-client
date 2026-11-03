@@ -4,7 +4,13 @@ from ...command_register import(
     CommandPackage
 )
 from ...cmd_info import CmdTypes
-from ...assist import PersonaInfo, SendMsg, SendingTarget
+from ...assist import (
+    PersonaInfo,
+    SendMsg,
+    Scene,
+    MessageSource,
+    SendingTarget
+)
 
 @CommandCaller.register
 class RemoteNoPromptEcho(CommandPackage):
@@ -41,12 +47,18 @@ class RemoteNoPromptEcho(CommandPackage):
             match mode:
                 case "group":
                     remote_send_msg = send_msg.copy(
-                        target_group = id,
+                        target = Scene(
+                            source = MessageSource.GROUP,
+                            id = id,
+                        ),
                         send_target = SendingTarget.API,
                     )
                 case "private":
                     remote_send_msg = send_msg.copy(
-                        target_user = id,
+                        target = Scene(
+                            source = MessageSource.PRIVATE,
+                            id = id,
+                        ),
                         send_target = SendingTarget.API,
                     )
                 case _:

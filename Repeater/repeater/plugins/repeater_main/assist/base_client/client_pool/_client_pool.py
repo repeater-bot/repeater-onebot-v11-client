@@ -1,9 +1,11 @@
 import asyncio
 
 from httpx import AsyncClient
-from loguru import logger
+from loguru import logger as base_logger
 from cachetools import LRUCache
 from ._client_info import ClientInfo
+
+logger = base_logger.bind(module="client_pool")
 
 class ClientPool:
     def __init__(self, cache_size: int = 100):

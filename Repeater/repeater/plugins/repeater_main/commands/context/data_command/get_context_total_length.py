@@ -25,7 +25,7 @@ class GetContextTotalLength(CommandPackage):
         context_client = ContextClient(persona_info, user_config)
         response = await context_client.get_context_total_length()
 
-        if response.code == 200:
+        if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error("Unable to process data.")

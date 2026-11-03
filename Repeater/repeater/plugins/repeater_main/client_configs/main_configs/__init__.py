@@ -17,6 +17,8 @@ from .storage_configs_instance import storage_configs
 from .text_length_score import TextLengthScoreConfigs, TextLengthScoreThreshold
 from .external_trigger_server import ExternalTriggerServer
 from .chat_output import ChatOutput, ChatOutputMode
+from .chat_loop import ChatLoopConfigs
+from .context_search import ContextSearchConfigs
 
 __all__ = [
     "BehavioralACT",
@@ -41,4 +43,6 @@ __all__ = [
     "ExternalTriggerServer",
     "ChatOutput",
     "ChatOutputMode",
+    "ChatLoopConfigs",
+    "ContextSearchConfigs"
 ]

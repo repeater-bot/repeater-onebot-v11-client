@@ -16,7 +16,7 @@ class SlotCaster(CommandPackage):
         "sct",
         "SCT",
         "slot_caster",
-        "Slot_Caster"
+        "Slot_Caster",
         "SlotCaster",
         "SLOT_CASTER"
     }
@@ -97,7 +97,7 @@ class SlotCaster(CommandPackage):
 
     async def get_text(self, persona_info: PersonaInfo) -> str:
         text_buffer: list[str] = []
-        for replys in await persona_info.from_reply_reversed_chain():
+        for replys in await persona_info.from_reversed_reply_chain():
             text_buffer.append(
                 await self._get_text(
                     replys

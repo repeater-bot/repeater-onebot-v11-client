@@ -10,4 +10,4 @@ async def get_stranger_info(
         user_id = user_id,
         no_cache = no_cache
     )
-    return BusinessCard(**result)
+    return BusinessCard.model_validate(result)

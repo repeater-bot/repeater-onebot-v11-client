@@ -1,4 +1,5 @@
 import httpx
+import orjson
 
 from ....client_configs import *
 from ....assist import Response
@@ -69,10 +70,28 @@ class ContextClient(UserDataClient):
         if isinstance(data, list):
             return Response(
                 response,
-                parsed_data = [ContentUnit(**data) for data in data]
+                parsed_data = [ContentUnit.model_validate(data) for data in data]
             )
         else:
             return Response(response)
+
+    async def get_context_contents(self, branch_id: str | None = None) -> Response[list[str]]:
+        logger.info("Getting context contents")
+        response = await self.client.get(
+            self.join_url_static(GET_CONTEXT_ROUTE, self.namespace_str),
+            params = {"branch_id": branch_id} if branch_id else None
+        )
+        data = orjson.loads(response.content)
+        if not isinstance(data, list):
+            return Response(response)
+        return Response(
+            response,
+            parsed_data = [
+                str(unit.get("content") or "")
+                for unit in data
+                if isinstance(unit, dict)
+            ]
+        )
 
     # region get context
     async def get_context_pairs(self) -> Response[ContextPairsResponse]:

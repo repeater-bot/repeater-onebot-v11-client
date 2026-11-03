@@ -1,5 +1,3 @@
-import uuid
-
 from pydantic import BaseModel
 from typing import Any
 from ..content_role import ContentRole
@@ -22,6 +20,7 @@ class AdditionalData(BaseModel):
 class ChatRequestModel(BaseModel):
     message: str | None = None
     task_id: str | None = None
+    context_branch_id: str | None = None
     suffix: str | None = None
     echo: bool | None = None
     fim_mode: bool | None = None

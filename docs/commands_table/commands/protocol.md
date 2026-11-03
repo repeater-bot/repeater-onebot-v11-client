@@ -11,3 +11,6 @@
 | `filterMessagesNow`        | `fmn`    | `FilterMessagesNow`       | `PROTOCOL`  | 4.9.11.0       | 过滤当前环境的消息              | 格式：message_id:count regex               | 与上条功能一致，但环境使用当前环境 |
 | `businessCard`             | `bc`     | `BusinessCard`            | `PROTOCOL`  | 4.9.14.0       | 解析 QQ 用户的名片              | (可选) @群成员                             | 解析指定用户的名片，并返回结果 |
 | `listOfSpeakers`           | `los`    | `ListOfSpeakers`          | `PROTOCOL`  | 4.10.1.0       | 获取当天发言排行榜              | (可选) 回溯天数                            | 获取当天发言排行榜，填写回溯天数时返回从现在开始回溯指定天数的消息统计，不填则仅返回本天的统计 |
+| `sendFile`                 | `sf`     | `SendFile`                | `PROTOCOL`  | 4.10.10.1      | 发送文件                       | URL                                        | 发送文件 |
+| `clearAllSelfGroupFile`    | `casgf`  | `ClearAllSelfGroupFile`   | `PROTOCOL`  | 4.10.10.2      | 清空所有自己发的群文件          | 无                                         | 清空所有群文件 |
+| `unpackForward`            | `uf`     | `UnpackForward`           | `PROTOCOL`  | 4.10.10.3      | 解包转发消息                    | 无                                         | 解包转发消息 |

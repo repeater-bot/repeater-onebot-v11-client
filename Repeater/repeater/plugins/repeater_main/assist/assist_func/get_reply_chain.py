@@ -4,7 +4,8 @@ from .get_reply_msgs import get_reply_msgs
 
 async def get_reply_chain(
     bot: Bot,
-    message: Message,
+    event: MessageEvent,
+    args: Message,
     max_depth: int | None = None
 ) -> AsyncGenerator[MessageEvent, None]:
     """
@@ -14,7 +15,8 @@ async def get_reply_chain(
     如果有存在多个，则使用第一个
 
     :param bot: Bot
-    :param message: 消息
+    :param event: 事件
+    :param args: 消息
     :param max_depth: 最大深度
     """
     times: int = 0
@@ -25,12 +27,13 @@ async def get_reply_chain(
         
         reply_messages = await get_reply_msgs(
             bot = bot,
-            message = message
+            event = event,
+            args = args
         )
         if len(reply_messages) >= 1:
             event = reply_messages[0]
             yield event
-            message = event.message
+            args = event.message
             if event.message_id in message_ids:
                 break
             else:

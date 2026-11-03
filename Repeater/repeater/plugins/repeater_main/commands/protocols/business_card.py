@@ -15,7 +15,7 @@ class BusinessCard(CommandPackage):
         "bc",
         "BC",
         "business_card",
-        "Business_Card"
+        "Business_Card",
         "BusinessCard",
         "BUSINESS_CARD"
     }

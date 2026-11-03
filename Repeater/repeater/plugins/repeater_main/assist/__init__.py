@@ -21,6 +21,7 @@ from .assist_func import (
     make_empty_message_event,
     format_time_duration_ns,
     format_time_duration,
+    format_size_duration,
     make_message_event,
     get_private_message_history,
     get_group_message_history,
@@ -38,7 +39,6 @@ from .persona_info import (
     FileInfo
 )
 from .namespace import (
-    MessageSource,
     Namespace
 )
 from .response import (
@@ -110,6 +110,10 @@ from .fuzzy import (
     FuzzyMatch,
     Distances,
 )
+from .scene import (
+    Scene,
+    MessageSource,
+)
 
 __all__ = [
     "get_first_mentioned_user",
@@ -148,7 +152,6 @@ __all__ = [
     "PersonaInfo",
     "FileInfo",
 
-    "MessageSource",
     "Namespace",
 
     "Response",
@@ -206,4 +209,7 @@ __all__ = [
     "Ratios",
     "FuzzyMatch",
     "Distances",
+
+    "Scene",
+    "MessageSource"
 ]

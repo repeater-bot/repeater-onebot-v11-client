@@ -50,9 +50,7 @@ class SetHelloContent(CommandPackage):
             return
         else:
             try:
-                user_configs.hello_content = HelloContent(
-                    **data
-                )
+                user_configs.hello_content = HelloContent.model_validate(data)
             except ValidationError as e:
                 errors = e.errors()
                 buffer: list[str] = []

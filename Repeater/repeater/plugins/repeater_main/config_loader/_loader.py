@@ -34,9 +34,9 @@ class Loader(Generic[T_MODEL]):
             return config
         try:
             if self._mode == Mode.JSON:
-                return self._model(**self._decode_json(self._path))
+                return self._model.model_validate(self._decode_json(self._path))
             elif self._mode == Mode.YAML:
-                return self._model(**self._decode_yaml(self._path))
+                return self._model.model_validate(self._decode_yaml(self._path))
             else:
                 raise ValueError("Unknown mode")
         except Exception as e:

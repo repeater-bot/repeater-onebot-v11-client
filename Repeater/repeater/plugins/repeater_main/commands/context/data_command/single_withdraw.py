@@ -38,7 +38,7 @@ class SingleWithdraw(CommandPackage):
 
         response = await context_client.withdraw(num, paired=False)
 
-        if response.code == 200:
+        if response:
             data = response.get_data()
             if data is None:
                 await send_msg.send_error("Unable to process data.")
