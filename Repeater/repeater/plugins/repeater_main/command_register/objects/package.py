@@ -543,14 +543,14 @@ class CommandPackage(ABC, Generic[T]):
         Called when asyncio.CancelledError reaches the dispatch of CommandCaller._enter_handler,
         i.e. the run task was cancelled or the Handler raised it.
         The default implementation logs "<component> cancelled" at WARNING level and returns the
-        SubCmdCancelled class, which becomes SubCmdCancelled(0); handler_exit still runs.
+        SubCmdCancelled(4), which becomes SubCmdCancelled(0); handler_exit still runs.
 
         :param persona_info: PersonaInfo object
         :param send_msg: SendMsg object
         :return: the SubCmdCancelled class, used as the result of the run
         """
         logger.warning(f"{self.component} cancelled")
-        return SubCmdCancelled
+        return SubCmdCancelled(4)
 
     async def on_timeout(self, persona_info: PersonaInfo, send_msg: SendMsg) -> T | Any | None | NoReturn:
         """
