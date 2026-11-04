@@ -256,7 +256,7 @@ class ChatLoopSession:
         while not self._closing:
             listener = await CommandCaller.message_future(target = self.scene)
             if self._closing:
-                await CommandCaller.cancel_wait_message_listener(listener.id)
+                await CommandCaller.cancel_message_future(listener.id)
                 return
             self._listener_id = listener.id
             try:
@@ -390,7 +390,7 @@ class ChatLoopSession:
 
     async def _stop_collector(self) -> None:
         if self._listener_id is not None:
-            await CommandCaller.cancel_wait_message_listener(self._listener_id)
+            await CommandCaller.cancel_message_future(self._listener_id)
             self._listener_id = None
         task = self._collector
         if task is None:

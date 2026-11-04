@@ -330,4 +330,4 @@ class FindCards(CommandPackage):
         except asyncio.TimeoutError:
             return None
         finally:
-            await CommandCaller.cancel_wait_message_listener(listener.id)
+            await CommandCaller.cancel_message_future(listener.id)
