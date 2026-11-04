@@ -605,6 +605,7 @@ class CommandCaller:
         cls,
         target: Namespace | Scene,
         timeout: int | float | None = None,
+        auto_cancel: bool = False,
         block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> PersonaInfo:
         """
@@ -612,6 +613,7 @@ class CommandCaller:
 
         :param target: The target of listening.
         :param timeout: The timeout of waiting.
+        :param auto_cancel: Whether to cancel the waiting when the message is received.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
@@ -619,6 +621,7 @@ class CommandCaller:
         future = await cls.message_future(
             target = target,
             timeout = timeout,
+            auto_cancel = auto_cancel,
             block_propagation = block_propagation
         )
         result = await future
@@ -629,6 +632,7 @@ class CommandCaller:
         cls,
         target: Namespace | Scene,
         timeout: int | float | None = None,
+        auto_cancel: bool = False,
         block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> ListenerPackage:
         """
@@ -636,6 +640,7 @@ class CommandCaller:
 
         :param target: The target of listening.
         :param timeout: The timeout of waiting.
+        :param auto_cancel: Whether to cancel the Future when it is done.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: The `Future` object.
@@ -694,14 +699,30 @@ class CommandCaller:
                                 listener.set_exception(
                                     asyncio.TimeoutError(f"Message Future {listener_id} Timeout.")
                                 )
-            task = asyncio.create_task(
+            timeout_task = asyncio.create_task(
                 timeout_handler()
+            )
+
+        if auto_cancel:
+            async def cancel_handler():
+                nonlocal cls, listener_id
+                try:
+                    await future
+                except Exception:
+                    pass
+                finally:
+                    task = asyncio.create_task(
+                        cls.cancel_message_future(listener_id)
+                    )
+
+            cancel_task = asyncio.create_task(
+                cancel_handler()
             )
 
         return listen_package
 
     @classmethod
-    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+    async def cancel_message_future(cls, listener_id: uuid.UUID) -> bool:
         """
         Cancel the wait message listener.
 
