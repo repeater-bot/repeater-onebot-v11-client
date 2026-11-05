@@ -22,8 +22,9 @@ from ..assist_func import (
 from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
 from ..network import HTTPCode
-from ..persona_info import PersonaInfo, EnterType
+from ..persona_info import PersonaInfo
 from ..scene import Scene, MessageSource
+from ..namespace import Namespace
 from ..text_render.text_render import TextRender
 from ..response.response import Response
 from ..chattts import ChatTTSAPI
@@ -2491,28 +2492,36 @@ class SendMsg:
 
         return threshold
     
-    async def _send_file(self, url: str, file_name: str) -> str | None:
+    async def _send_file(
+            self,
+            url: str,
+            file_name: str
+        ) -> str | None:
         """
         发送文件
 
         :param url: 文件URL
         :param file_name: 文件名
         """
+        target = self._target or self._persona_info.scene
+        if target.id is None:
+            raise ValueError('target.id is None')
         try:
-            if self._persona_info.source == MessageSource.GROUP and self._persona_info.group_id is not None:
-                return await send_group_file(
-                    bot = self._persona_info.cached_api,
-                    group_id = self._persona_info.group_id,
-                    url = url,
-                    file_name = file_name
-                )
-            elif self._persona_info.source == MessageSource.PRIVATE:
-                return await send_private_file(
-                    bot = self._persona_info.cached_api,
-                    user_id = self._persona_info.user_id,
-                    url = url,
-                    file_name = file_name
-                )
+            match target.source:
+                case MessageSource.GROUP:
+                    return await send_group_file(
+                        bot = self._persona_info.cached_api,
+                        group_id = target.id,
+                        url = url,
+                        file_name = file_name
+                    )
+                case MessageSource.PRIVATE:
+                    return await send_private_file(
+                        bot = self._persona_info.cached_api,
+                        user_id = target.id,
+                        url = url,
+                        file_name = file_name
+                    )
         except ActionFailed as e:
             logger.error(f"Failed to upload file: {e}")
             await self.send_error("Failed to upload file.")
@@ -2556,30 +2565,31 @@ class SendMsg:
     
     async def _send_poke(
             self,
-            group_id: str | None = None,
-            user_id: str | None = None
+            namespace: Namespace,
         ) -> None:
         """
         发送戳一戳
         """
-        match self._persona_info.source:
+        match namespace.mode:
             case MessageSource.GROUP:
                 if self._persona_info.group_id is not None:
+                    if namespace.group_id is None:
+                        raise ValueError("group_id is None")
+                    
                     await self._persona_info.cached_api.send_poke(
-                        group_id = group_id or self._persona_info.group_id,
-                        user_id = user_id or self._persona_info.user_id
+                        group_id = namespace.group_id,
+                        user_id = namespace.user_id
                     )
             case MessageSource.PRIVATE:
                 await self._persona_info.cached_api.send_poke(
-                    user_id = user_id or self._persona_info.user_id
+                    user_id = namespace.user_id
                 )
             case _:
                 await self.send_error("Unsupported message source.")
     
     async def send_poke(
             self,
-            group_id: str | None = None,
-            user_id: str | None = None,
+            namespace: Namespace,
             break_code: int = 0,
             continue_handler: bool = False
         ) -> None:
@@ -2587,9 +2597,8 @@ class SendMsg:
         发送戳一戳
         """
         await self.poke_speed_limiter.submit(
-            self._send_poke(
-                user_id = user_id,
-                group_id = group_id
+            task = self._send_poke(
+                namespace = namespace
             ),
         )
         if not continue_handler:
