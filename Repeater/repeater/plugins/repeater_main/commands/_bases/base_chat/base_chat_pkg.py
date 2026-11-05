@@ -106,7 +106,8 @@ class BaseChat(CommandPackage):
     ) -> str:
         forward_msgs = await persona_info.get_forward_msgs()
         if forward_msgs:
-            forward_msgs_text = persona_info.generates_text_from_messages_list(forward_msgs)
+            forward_msgs_texts = [persona_info.generates_text_from_messages_list(forward_msg) for forward_msg in forward_msgs]
+            forward_msgs_text = "\n\n".join(forward_msgs_texts)
             message_text = f"Forwarded messages:\n{forward_msgs_text}\n\n---\n\n"
         else:
             message_text = ""

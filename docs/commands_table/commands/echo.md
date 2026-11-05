@@ -10,3 +10,4 @@
 | `remoteEcho`               | `recho`  | `RemoteEcho`              | 4.9.1.0        | 远程 Echo                     | (group|private):id 要重复消息内容           | 与 echo 相同，但可以指定发送目标，**需要 super_permissions** |
 | `remoteNoPromptEcho`       | `rnpecho`| `RemoteNoPromptEcho`      | 4.9.1.0        | 远程无额外反应的 Echo          | (group|private):id 任何内容                | 与 npecho 相同，但可以指定发送目标，**需要 super_permissions** |
 | `removeReply`              | `rr`     | `RemoveReply`             | 4.9.1.0        | 移除回复消息                   | 消息内容                                   | 移除传入消息内容的回复消息 |
+| `repeatLastMsg`            | `rlm`    | `RepeatLastMsg`           | 4.10.13.0      | 重复上一条消息                 | 无                                         | 执行后，获取上一条消息并重复它 |

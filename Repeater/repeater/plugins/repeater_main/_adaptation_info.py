@@ -1,2 +1,2 @@
-__adaptation__ = "4.10.10"
+__adaptation__ = "4.10.12"
 __adaptation_text__ = f"Repeater Onebot client implementation based on NoneBot Plugins, adaptation version: {__adaptation__}"

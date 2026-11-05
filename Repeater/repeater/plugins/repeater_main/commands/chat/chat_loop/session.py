@@ -47,6 +47,9 @@ class ChatLoopSession:
         self._empty_streak = 0
         self._retry_backlog: list[PersonaInfo] = []
         self._tome_ids: set = set()
+        # 叫过我的消息号，供格式化时打标记；和 _tome_ids 分开存，因为 _tome_ids
+        # 会在分批时被消费掉，而标记要跟着消息一直留到真正发出去
+        self._call_me_ids: set = set()
         self._collector: asyncio.Task | None = None
         self._listener_id = None
         self._closing = False
@@ -298,6 +301,7 @@ class ChatLoopSession:
         if is_tome:
             self._tome_pending = True
             self._tome_ids.add(persona_info.message_id)
+            self._call_me_ids.add(persona_info.message_id)
         self._empty_streak = 0
         self._wake.set()
         self.message_queue.put_nowait(persona_info)
@@ -481,10 +485,17 @@ class ChatLoopSession:
                 formatted_messages.append(quoted)
         return "\n".join(formatted_messages)
 
-    @staticmethod
-    def _format_message_line(message: PersonaInfo) -> str:
+    def _format_message_line(self, message: PersonaInfo) -> str:
+        """一条消息的主行；叫过我的消息在名字后面多带一个属性。
+
+        属性直接融进同一对方括号里，和 time/usrid/msgid 并列，所以仍然是「一条消息
+        一个标签」，不需要额外的前缀括号。判定用的是收消息时算好的结果，不回查平台。
+        """
+
+        call_me = "|**call_me_msg**" if message.message_id in self._call_me_ids else ""
         return (
             f"[{orjson.dumps(message.display_name).decode('utf-8')}"
+            f"{call_me}"
             f"|time={message.time.isoformat()}"
             f"|usrid={message.user_id}"
             f"|msgid={message.message_id}]: "
