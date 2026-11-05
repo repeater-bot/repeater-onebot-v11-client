@@ -32,6 +32,7 @@ from .format_size_duration import (
     format_size_duration
 )
 from .make_message_event import make_message_event
+from .make_new_message_event import make_new_message_event
 from .get_message_history import (
     get_private_message_history,
     get_group_message_history,
@@ -66,7 +67,9 @@ __all__ = [
     "make_empty_message_event",
     "format_time_duration_ns",
     "format_time_duration",
+    "format_size_duration",
     "make_message_event",
+    "make_new_message_event",
     "get_group_message_history",
     "get_private_message_history",
     "is_empty_message",
