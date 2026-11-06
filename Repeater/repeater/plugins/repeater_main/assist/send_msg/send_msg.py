@@ -6,52 +6,29 @@ from croniter import croniter
 from datetime import datetime
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment, Message
-from nonebot.internal.matcher.matcher import Matcher
-from nonebot.exception import (
-    FinishedException,
-    StopPropagation,
-    ActionFailed
-)
-
 from ..assist_func import (
     text_length_score,
-    send_group_file,
-    send_private_file,
-    is_empty_message,
 )
-from ..text_render.text_render import RendedImage
 from ...client_configs import REPEATER_DEBUG_MODE, storage_configs
 from ..network import HTTPCode
 from ..persona_info import PersonaInfo
-from ..scene import Scene, MessageSource
+from ..scene import Scene
 from ..namespace import Namespace
-from ..text_render.text_render import TextRender
 from ..response.response import Response
-from ..chattts import ChatTTSAPI
 from ..special_values import NoGive, nogive, is_no_give
 from typing import (
     Iterable,
     Any,
     Callable,
-    Awaitable,
     NoReturn,
     TypeVar,
-    Type,
     Literal,
-    ClassVar,
     overload
 )
-from .speed_limiter import SpeedLimiter
 from .sending_buffer_unit import SendingBufferUnit
-from ...exceptions import (
-    BreakHandler,
-)
 from ...logger import logger as base_logger
-from .sending_target import SendingTarget
+from .send_type import SendType
 from .text_render_exceptions import (
-    InvalidResponseData,
-    RenderResponseException,
-    NotInitializedResponse,
     TextRenderException,
 )
 from .zone_ugc_right import ZoneUGCRight
@@ -59,6 +36,7 @@ from .typings import (
     SEND_HOOK,
     RENDER_HOOK,
 )
+from .send_core import BaseSendCore
 
 logger = base_logger.bind(module = "SendMsg")
 
@@ -68,17 +46,18 @@ class SendMsg:
     r"""
     Repeater 统一消息发送处理对象
 
-    
     Usage:
 
         >>> send_msg = SendMsg(
-        ...     component = self.component,
-        ...     persona_info = PersonaInfo(
-        ...         bot = bot,
-        ...         event = event,
-        ...         args = args
-        ...     ),
-        ...     matcher = matcher
+        ...     component = component,
+        ...     send_core = SendCore(
+        ...         persona_info = PersonaInfo(
+        ...             bot = bot,
+        ...             event = event,
+        ...             args = args
+        ...         ),
+        ...         matcher = matcher
+        ...     )
         ... )
         ...
         >>> # 发送提示信息
@@ -118,18 +97,18 @@ class SendMsg:
         ... )
         >>> 
         >>> # 复制一个输出为 Buffer 的 SendMsg
-        >>> copyed_send_msg = send_msg.copy(
+        >>> copied_send_msg = send_msg.copy(
         ...     continue_handler = True
         ... )
         >>> # 发送一个消息到缓冲区
-        >>> await copyed_send_msg.send_prompt(
+        >>> await copied_send_msg.send_prompt(
         ...     "Test", # 此处也可以填写字符串
         ...     continue_handler = True
         ... )
         >>> # 从缓冲区读取内容
         >>> text_buffer: list[str] = []
-        >>> while copyed_send_msg.buffer.qsize() > 0:
-        ...     result = await copyed_send_msg.buffer.get()
+        >>> while copied_send_msg.buffer.qsize() > 0:
+        ...     result = await copied_send_msg.buffer.get()
         ...     text_buffer.append(result.message)
         >>> # 发送一个消息
         >>> await send_msg.send_prompt(
@@ -138,160 +117,63 @@ class SendMsg:
         ... )
         >>> 
         >>> # 复制并设置目标为 群聊 1234567890
-        >>> copyed_send_msg = send_msg.copy(
+        >>> copied_send_msg = send_msg.copy(
         ...     continue_handler = True,
-        ...     target_group = "1234567890",
+        ...     target = Scene(
+        ...         source = MessageSource.GROUP,
+        ...         id = "1234567890",
+        ...     )
         ...     send_target = SendingTarget.API # 只有设置成 API 才能绕过 Matcher 发送消息
         ... )
         >>> # 发送一个消息到群聊 1234567890
-        >>> await copyed_send_msg.send_prompt(
+        >>> await copied_send_msg.send_prompt(
         ...     "Test", # 此处也可以填写字符串
         ...     continue_handler = True
         ... )
         >>> 
         >>> # 复制并设置目标为 用户 1234567890
-        >>> copyed_send_msg = send_msg.copy(
+        >>> copied_send_msg = send_msg.copy(
         ...     continue_handler = True,
-        ...     target_user = "1234567890",
+        ...     target = Scene(
+        ...         source = MessageSource.PRIVATE,
+        ...         id = "1234567890",
+        ...     )
         ...     send_target = SendingTarget.API # 也是只有设置成 API 才能绕过 Matcher 发送消息
         ... )
         >>> # 发送一个消息到用户 1234567890
-        >>> await copyed_send_msg.send_prompt(
+        >>> await copied_send_msg.send_prompt(
         ...     "Test", # 此处也可以填写字符串
         ...     continue_handler = True
         ... )
         >>> # 手动退出当前层级 Handler (不终止上层)
         >>> send_msg.break_handler(0) # 可以填写返回值告诉上层自己是否是正常结束
     """
-    message_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
-        storage_configs.camouflage.limit_speed_per_minute.send_msg
-    )
-    file_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
-        storage_configs.camouflage.limit_speed_per_minute.file
-    )
-    poke_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
-        storage_configs.camouflage.limit_speed_per_minute.poke
-    )
-    zone_speed_limiter: ClassVar[SpeedLimiter] = SpeedLimiter(
-        storage_configs.camouflage.limit_speed_per_minute.zone
-    )
-    
-    @overload
     def __init__(
             self,
             component: str,
-            persona_info: PersonaInfo,
-            matcher: Type[Matcher],
-            reply: MessageSegment | None = None,
-            prefix: Message | None = None,
-            suffix: Message | None = None,
-            target: Scene | None = None,
-            send_target: Literal[SendingTarget.MATCHER] = SendingTarget.MATCHER,
-            send_hook: SEND_HOOK | None = None,
-            render_hook: RENDER_HOOK | None = None,
-        ): ...
-    
-    @overload
-    def __init__(
-            self,
-            component: str,
-            persona_info: PersonaInfo,
-            matcher: Type[Matcher] | None = None,
-            reply: MessageSegment | None = None,
-            prefix: Message | None = None,
-            suffix: Message | None = None,
-            target: Scene | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO,
-            send_hook: SEND_HOOK | None = None,
-            render_hook: RENDER_HOOK | None = None,
-        ): ...
-
-    def __init__(
-            self,
-            component: str,
-            persona_info: PersonaInfo,
-            matcher: Type[Matcher] | None = None,
-            reply: MessageSegment | None = None,
-            prefix: Message | None = None,
-            suffix: Message | None = None,
-            target: Scene | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO,
-            send_hook: SEND_HOOK | None = None,
-            render_hook: RENDER_HOOK | None = None,
+            send_core: BaseSendCore,
         ):
         self._component: str = component
-        self._persona_info: PersonaInfo = persona_info
-        self._reply: MessageSegment | None = reply
-        self._prefix: Message = prefix or Message()
-        self._suffix: Message = suffix or Message()
-        self._chat_tts_api = ChatTTSAPI()
-        self._matcher: Type[Matcher] | None = matcher
-        self._target: Scene | None = target
-        self._send_hook: SEND_HOOK | None = send_hook
-        self._render_hook: RENDER_HOOK | None = render_hook
-        
-        self._buffer: asyncio.Queue[SendingBufferUnit] = asyncio.Queue()
-        self._sending_target: SendingTarget = send_target
-        match self._sending_target:
-            case SendingTarget.AUTO:
-                if matcher is None:
-                    self._sending_target = SendingTarget.API
-                else:
-                    self._sending_target = SendingTarget.MATCHER
-            case SendingTarget.MATCHER:
-                if matcher is None:
-                    raise ValueError("Matcher can't be a target, because it's not given.")
+        self._send_core: BaseSendCore = send_core
 
     def __repr__(self) -> str:
         args_map:  list[tuple[str, Any]] = [
             ("component", self._component),
-            ("persona_info", self._persona_info),
-            ("matcher", self._matcher),
-            ("reply", self._reply),
-            ("prefix", self._prefix),
-            ("suffix", self._suffix),
-            ("target", self._target),
-            ("sending_target", self._sending_target),
-            ("send_hook", self._send_hook),
-            ("render_hook", self._render_hook),
+            ("send_core", self._send_core),
         ]
         return f"{self.__class__.__name__}({', '.join([f'{k}={v!r}' for k, v in args_map if v is not None])})"
     
     def copy(
             self,
             component: str | NoGive = nogive,
-            persona_info: PersonaInfo | NoGive = nogive,
-            matcher: Type[Matcher] | None | NoGive = nogive,
-            reply: MessageSegment | None | NoGive = nogive,
-            prefix: Message | None | NoGive = nogive,
-            suffix: Message | None | NoGive = nogive,
-            target: Scene | None | NoGive = nogive,
-            send_target: SendingTarget | NoGive = nogive,
-            send_hook: SEND_HOOK | None | NoGive = nogive,
-            render_hook: RENDER_HOOK | None | NoGive = nogive,
+            send_core: BaseSendCore | NoGive = nogive
         ) -> "SendMsg":
         component = component if not is_no_give(component) else self._component
-        persona_info = persona_info if not is_no_give(persona_info) else self._persona_info.copy()
-        matcher = matcher if not is_no_give(matcher) else self._matcher
-        reply = reply if not is_no_give(reply) else self._reply
-        prefix = prefix if not is_no_give(prefix) else self._prefix
-        suffix = suffix if not is_no_give(suffix) else self._suffix
-        send_target = send_target if not is_no_give(send_target) else self._sending_target
-        target = target if not is_no_give(target) else self._target
-        send_hook = send_hook if not is_no_give(send_hook) else self._send_hook
-        render_hook = render_hook if not is_no_give(render_hook) else self._render_hook
+        send_core = send_core if not is_no_give(send_core) else self._send_core
 
         instance = self.__class__(
             component = component,
-            persona_info = persona_info,
-            matcher = matcher,
-            reply = reply,
-            prefix = prefix,
-            suffix = suffix,
-            target = target,
-            send_target = send_target,
-            send_hook = send_hook,
-            render_hook = render_hook
+            send_core = send_core
         )
         
         return instance
@@ -383,7 +265,14 @@ class SendMsg:
         """
         当前消息的 PersonaInfo 实例
         """
-        return self._persona_info
+        return self._send_core.persona_info
+
+    @property
+    def send_core(self) -> BaseSendCore:
+        """
+        当前消息的 SendCore 实例
+        """
+        return self._send_core
     
     @property
     def component(self) -> str:
@@ -391,58 +280,27 @@ class SendMsg:
         当前消息的组件
         """
         return self._component
-    
-    @property
-    def matcher(self) -> Type[Matcher] | None:
-        """
-        当前消息的 Matcher 实例
-        """
-        return self._matcher
-    
-    @matcher.setter
-    def matcher(self, matcher: Type[Matcher] | None):
-        """
-        设置当前消息的 Matcher 实例
-        """
-        if matcher is None:
-            self._matcher = None
-        elif issubclass(matcher, Matcher):
-            self._matcher = matcher
-        else:
-            raise TypeError(f"matcher must be Matcher or None, not {type(matcher).__name__}")
 
     @property
-    def sending_target(self) -> SendingTarget:
+    def send_type(self) -> SendType:
         """
-        当前消息的发送目标
+        当前消息的发送目标类型
         """
-        return self._sending_target
+        return self._send_core._send_type
 
-    @sending_target.setter
-    def sending_target(self, sending_target: SendingTarget):
+    @send_type.setter
+    def send_type(self, target: SendType) -> None:
         """
-        设置当前消息的发送目标
+        设置当前消息的发送目标类型
         """
-        if not isinstance(sending_target, SendingTarget):
-            raise TypeError(f"sending_target must be SendingTarget, not {type(sending_target).__name__}")
-
-        self._sending_target = sending_target
-        match self._sending_target:
-            case SendingTarget.AUTO:
-                if self._matcher is None:
-                    self._sending_target = SendingTarget.API
-                else:
-                    self._sending_target = SendingTarget.MATCHER
-            case SendingTarget.MATCHER:
-                if self._matcher is None:
-                    raise ValueError("Matcher can't be a target, because it's not given.")
+        self._send_core._send_type = target
 
     @property
     def reply(self) -> MessageSegment | None:
         """
         当前消息的回复内容
         """
-        return self._reply
+        return self._send_core.reply
 
     @property
     def prefix(self) -> Message:
@@ -463,28 +321,28 @@ class SendMsg:
         """
         指定的发送目标
         """
-        return self._target
+        return self._send_core.target
 
     @property
-    def send_hook(self) -> SEND_HOOK | None:
+    def send_hook(self) -> Iterable[SEND_HOOK] | None:
         """
         当前的发送钩子
         """
-        return self._send_hook
+        return self._send_core.send_hook
 
     @property
-    def render_hook(self) -> RENDER_HOOK | None:
+    def render_hook(self) -> Iterable[RENDER_HOOK] | None:
         """
         当前的渲染钩子
         """
-        return self._render_hook
+        return self._send_core.render_hook
     
     @property
     def buffer(self) -> asyncio.Queue[SendingBufferUnit]:
         """
         当前消息的缓冲区
         """
-        return self._buffer
+        return self._send_core.buffer
     
     async def get_hello_content(self) -> str:
         """
@@ -541,7 +399,7 @@ class SendMsg:
             "Send Debug Message"
         )
         await self.send_text(
-            f"[{self._component}|{self._persona_info.namespace}|{self._persona_info.nickname}]: {self._persona_info.message}",
+            f"[{self._component}|{self.persona_info.namespace}|{self.persona_info.nickname}]: {self.persona_info.message}",
             reply = reply,
             break_code = break_code,
             continue_handler = continue_handler,
@@ -886,7 +744,7 @@ class SendMsg:
         """
         return (
             f"== {self._component} ==\n"
-            f"> [{self._persona_info.namespace}|{self._persona_info.task_id}]\n"
+            f"> [{self.persona_info.namespace}|{self.persona_info.task_id}]\n"
         )
     
     @overload
@@ -1484,7 +1342,7 @@ class SendMsg:
         logger.info(
             "Send TTS"
         )
-        response = await self._chat_tts_api.text_to_speech(text)
+        response = await self._send_core.chat_tts_api.text_to_speech(text)
         if response:
             data = response.get_data()
             if data is not None:
@@ -1584,7 +1442,7 @@ class SendMsg:
         message = Message()
 
         if threshold is None:
-            threshold = self.length_score_threshold
+            threshold = self.text_length_score_threshold
 
         if length_score >= threshold:
             try:
@@ -1611,16 +1469,6 @@ class SendMsg:
             break_code = break_code,
             continue_handler = continue_handler
         )
-
-    @property
-    def length_score_threshold(self) -> float:
-        match self._persona_info.source:
-            case MessageSource.GROUP:
-                return storage_configs.text_length_score_configs.threshold.group
-            case MessageSource.PRIVATE:
-                return storage_configs.text_length_score_configs.threshold.private
-
-        raise ValueError(f"Invalid source: {self._persona_info.source}")
     
     @overload
     async def send_check_length(
@@ -1690,7 +1538,7 @@ class SendMsg:
             raise TypeError(f"message must be Message or str, but got {type(message)}")
         
         if threshold is None:
-            threshold = self.length_score_threshold
+            threshold = self.text_length_score_threshold
         
         length_score = self.text_length_score(text)
         if length_score >= threshold:
@@ -1780,7 +1628,7 @@ class SendMsg:
             raise TypeError(f"message must be Message or str, but got {type(prompt)}")
 
         if threshold is None:
-            threshold = self.length_score_threshold
+            threshold = self.text_length_score_threshold
     
         length_score = self.text_length_score(text)
         if length_score >= threshold:
@@ -2038,8 +1886,7 @@ class SendMsg:
             continue_handler = continue_handler
         )
 
-    @staticmethod
-    def handler_finished() -> NoReturn:
+    def handler_finished(self) -> NoReturn:
         """
         关闭整个处理流程树
 
@@ -2048,10 +1895,9 @@ class SendMsg:
         logger.info(
             "Handler finished"
         )
-        raise FinishedException
+        self._send_core.handler_finished()
 
-    @staticmethod
-    def block_propagation() -> NoReturn:
+    def block_propagation(self) -> NoReturn:
         """
         阻止事件向低优先级节点传播
 
@@ -2060,10 +1906,9 @@ class SendMsg:
         logger.info(
             "Stop propagation"
         )
-        raise StopPropagation
+        self._send_core.block_propagation()
 
-    @staticmethod
-    def break_handler(code: int = 0) -> NoReturn:
+    def break_handler(self, code: int = 0) -> NoReturn:
         """
         跳出当前处理函数
 
@@ -2072,7 +1917,7 @@ class SendMsg:
         logger.info(
             "Break handler"
         )
-        raise BreakHandler(code)
+        self._send_core.break_handler(code)
     
     async def render_text_to_msg_segment(
         self,
@@ -2178,56 +2023,20 @@ class SendMsg:
             "Render Text:\n{text}",
             text = text,
         )
-        user_configs = await self.persona_info.get_user_configs()
-        text_render = TextRender(
-            persona_info = self.persona_info,
-            user_configs = user_configs,
+        return await self._send_core.render_text(
+            text = text,
+            style = style,
+            image_expiry_time = image_expiry_time,
+            html_template = html_template,
+            title = title,
+            document_bottom_comment = document_bottom_comment,
+            width = width,
+            height = height,
+            direct_output = direct_output,
+            no_pre_labels = no_pre_labels,
+            no_escape = no_escape,
+            quality = quality,
         )
-        if text:
-            if self._render_hook:
-                await self._render_hook(
-                    text = text,
-                    style = style,
-                    image_expiry_time = image_expiry_time,
-                    html_template = html_template,
-                    title = title,
-                    document_bottom_comment = document_bottom_comment,
-                    width = width,
-                    height = height,
-                    direct_output = direct_output,
-                    no_pre_labels = no_pre_labels,
-                    no_escape = no_escape,
-                    quality = quality,
-                )
-            
-            render_response: Response[RendedImage] = await text_render.render(
-                text = text,
-                style = style,
-                image_expiry_time = image_expiry_time,
-                html_template = html_template,
-                title = title,
-                document_bottom_comment = document_bottom_comment,
-                width = width,
-                height = height,
-                direct_output = direct_output,
-                no_pre_labels = no_pre_labels,
-                no_escape = no_escape,
-                quality = quality
-            )
-            if render_response:
-                data = render_response.get_data()
-                if data is not None:
-                    url = data.image_url
-                    return url
-                else:
-                    logger.error(f"Render Data Is Invalid")
-                    raise InvalidResponseData(render_response)
-            elif render_response.initialized:
-                raise NotInitializedResponse(render_response)
-            else:
-                raise RenderResponseException(render_response)
-        else:
-            raise ValueError("Text is empty.")
     
     @overload
     async def _send(
@@ -2256,215 +2065,18 @@ class SendMsg:
         ) -> NoReturn | None:
         """
         发送消息
-
-        :param message: 消息对象
-        :param reply: 是否携带引用
-        :param continue_handler: 是否继续运行当前处理流程
+        :param message: 消息内容
+        :param reply: 是否回复
+        :param break_code: 错误码
+        :param continue_handler: 是否继续处理
+        :return: None
         """
-        if not is_empty_message(message):
-            send_msg = self._prefix + message + self._suffix
-
-            if reply:
-                if self._reply is not None:
-                    send_msg = self._reply + send_msg
-
-            if self._send_hook is not None and self._sending_target != SendingTarget.NULL:
-                hook_result = await self._send_hook(
-                    target = self._sending_target,
-                    message = send_msg,
-                )
-                if hook_result is False:
-                    if not continue_handler:
-                        self.break_handler(break_code)
-                    return
-            
-            try:
-                await self._send_to_target(
-                    message = send_msg,
-                    reply = reply,
-                    break_code = break_code,
-                    continue_handler = continue_handler
-                )
-            except Exception as error:
-                logger.error(
-                    "Message Send Failed: \n{error}",
-                    error = error
-                )
-                raise
-
-        if not continue_handler:
-            self.break_handler(break_code)
-    
-    async def _send_to_target(
-        self,
-        message: str | Message | MessageSegment,
-        reply: bool = True,
-        break_code: int = 0,
-        continue_handler: bool = False,
-        *args,
-        **kwargs
-    ) -> None:
-        """
-        发送消息到目标
-
-        :param message: 消息对象
-        """
-        match self._sending_target:
-            case SendingTarget.BUFFER:
-                logger.info(
-                    "Send to buffer: \n{message}",
-                    message = message
-                )
-                await self._send_to_queue(
-                    message,
-                    reply = reply,
-                    break_code = break_code,
-                    continue_handler = continue_handler,
-                    *args,
-                    **kwargs
-                )
-            case SendingTarget.MATCHER:
-                logger.info(
-                    "Send to matcher: \n{message}",
-                    message = message
-                )
-                await self.message_speed_limiter.submit(
-                    task = self._send_to_matcher(
-                        message,
-                        reply = reply,
-                        break_code = break_code,
-                        continue_handler = continue_handler,
-                        *args,
-                        **kwargs
-                    )
-                )
-            case SendingTarget.API:
-                logger.info(
-                    "Send to api: \n{message}",
-                    message = message
-                )
-                await self.message_speed_limiter.submit(
-                    task = self._send_to_api(
-                        message,
-                        reply = reply,
-                        break_code = break_code,
-                        continue_handler = continue_handler,
-                        *args,
-                        **kwargs
-                    )
-                )    
-            case SendingTarget.NULL:
-                logger.info(
-                    "Send to null: \n{message}",
-                    message = message
-                )
-                pass
-    
-    async def _send_to_queue(
-        self,
-        message: str | Message | MessageSegment,
-        reply: bool = True,
-        break_code: int = 0,
-        continue_handler: bool = False,
-        *args,
-        **kwargs
-    ) -> None:
-        """
-        发送消息到队列
-
-        :param message: 消息对象
-        """
-        now = time.time_ns()
-        monotonic_now = time.perf_counter_ns()
-        await self._buffer.put(
-            SendingBufferUnit(
-                message = message,
-                args = args,
-                kwargs = kwargs,
-                time = now,
-                monotonic_time = monotonic_now,
-                reply = reply,
-                break_code = break_code,
-                continue_handler = continue_handler,
-            )
+        return await self._send_core.send(
+            message = message,
+            reply = reply,
+            break_code = break_code,
+            continue_handler = continue_handler
         )
-    
-    async def _send_to_matcher(
-        self,
-        message: str | Message | MessageSegment,
-        reply: bool = True,
-        break_code: int = 0,
-        continue_handler: bool = False,
-        *args,
-        **kwargs
-    ) -> None:
-        """
-        发送消息到 Matcher
-
-        :param message: 消息对象
-        """
-        if self._matcher is not None:
-            await self._matcher.send(
-                message,
-                *args,
-                **kwargs
-            )
-    
-    async def _send_to_api(
-        self,
-        message: str | Message | MessageSegment,
-        reply: bool = True,
-        break_code: int = 0,
-        continue_handler: bool = False,
-        *args,
-        **kwargs
-    ) -> None:
-        """
-        发送消息到 API
-
-        :param message: 消息对象
-        """
-        if isinstance(message, MessageSegment):
-            message = Message(
-                message
-            )
-        bot = self._persona_info.cached_api
-        if self._target is not None:
-            if self._target.id is None:
-                raise ValueError(
-                    "Set target, but no target id provided."
-                )
-            
-            if self._target.is_private:
-                await bot.send_private_msg(
-                    user_id = int(self._target.id),
-                    message = message,
-                    *args,
-                    **kwargs
-                )
-            elif self._target.is_group:
-                await bot.send_group_msg(
-                    group_id = int(self._target.id),
-                    message = message,
-                    *args,
-                    **kwargs
-                )
-        elif self._persona_info.source == MessageSource.GROUP and self._persona_info.group_id is not None:
-            await bot.send_group_msg(
-                group_id = int(self._persona_info.group_id),
-                message = message,
-                *args,
-                **kwargs
-            )
-        elif self._persona_info.source == MessageSource.PRIVATE:
-            await bot.send_private_msg(
-                user_id = int(self._persona_info.user_id),
-                message = message,
-                *args,
-                **kwargs
-            )
-        else:
-            raise ValueError("Invalid Message Source")
     
     @staticmethod
     def text_length_score(text: str) -> float:
@@ -2485,46 +2097,17 @@ class SendMsg:
 
         :return: 文本长度得分阈值
         """
-        if self._persona_info.source == MessageSource.GROUP:
+        if self._send_core.target is None:
+            target = self.persona_info.scene
+        else:
+            target = self._send_core.target
+        
+        if target.is_group:
             threshold = storage_configs.text_length_score_configs.threshold.group
         else:
             threshold = storage_configs.text_length_score_configs.threshold.private
 
         return threshold
-    
-    async def _send_file(
-            self,
-            url: str,
-            file_name: str
-        ) -> str | None:
-        """
-        发送文件
-
-        :param url: 文件URL
-        :param file_name: 文件名
-        """
-        target = self._target or self._persona_info.scene
-        if target.id is None:
-            raise ValueError('target.id is None')
-        try:
-            match target.source:
-                case MessageSource.GROUP:
-                    return await send_group_file(
-                        bot = self._persona_info.cached_api,
-                        group_id = target.id,
-                        url = url,
-                        file_name = file_name
-                    )
-                case MessageSource.PRIVATE:
-                    return await send_private_file(
-                        bot = self._persona_info.cached_api,
-                        user_id = target.id,
-                        url = url,
-                        file_name = file_name
-                    )
-        except ActionFailed as e:
-            logger.error(f"Failed to upload file: {e}")
-            await self.send_error("Failed to upload file.")
     
     async def send_file(
             self,
@@ -2539,53 +2122,12 @@ class SendMsg:
         :param url: 文件URL
         :param file_name: 文件名
         """
-        file_id = await self.file_speed_limiter.submit(
-            self._send_file(
-                url = url,
-                file_name = file_name
-            ),
+        return await self._send_core.send_file(
+            url = url,
+            file_name = file_name,
+            break_code = break_code,
+            continue_handler = continue_handler
         )
-        if self._send_hook is not None:
-            await self._send_hook(
-                target = SendingTarget.API,
-                message = Message(
-                    MessageSegment(
-                        "file",
-                        {
-                            "id": file_id,
-                            "url": url,
-                            "name": file_name,
-                            "file_id": file_id
-                        }
-                    )
-                )
-            )
-        if not continue_handler:
-            self.break_handler(break_code)
-    
-    async def _send_poke(
-            self,
-            namespace: Namespace,
-        ) -> None:
-        """
-        发送戳一戳
-        """
-        match namespace.mode:
-            case MessageSource.GROUP:
-                if self._persona_info.group_id is not None:
-                    if namespace.group_id is None:
-                        raise ValueError("group_id is None")
-                    
-                    await self._persona_info.cached_api.send_poke(
-                        group_id = namespace.group_id,
-                        user_id = namespace.user_id
-                    )
-            case MessageSource.PRIVATE:
-                await self._persona_info.cached_api.send_poke(
-                    user_id = namespace.user_id
-                )
-            case _:
-                await self.send_error("Unsupported message source.")
     
     async def send_poke(
             self,
@@ -2596,48 +2138,11 @@ class SendMsg:
         """
         发送戳一戳
         """
-        await self.poke_speed_limiter.submit(
-            task = self._send_poke(
-                namespace = namespace
-            ),
+        return await self._send_core.send_poke(
+            namespace = namespace,
+            break_code = break_code,
+            continue_handler = continue_handler
         )
-        if not continue_handler:
-            self.break_handler(break_code)
-
-    async def _send_zone(
-            self,
-            content: str,
-            images: list[str] | None = None,
-            ugc_right: ZoneUGCRight | None = None,
-            target_uins: list[int] | None = None,
-        ) -> str | None:
-        """
-        发送 QQ 空间说说
-
-        :param content: 说说内容
-        :param images: 图片链接列表
-        :param ugc_right: 权限
-        :param target_uins: 目标用户列表
-        """
-
-        data: dict[str, Any] = {
-            "content": content
-        }
-
-        if images:
-            data["images"] = images
-
-        if ugc_right:
-            data["ugc_right"] = ugc_right.to_zone_ugc_right_num()
-
-        if target_uins:
-            data["target_uins"] = target_uins
-
-        response: dict = await self._persona_info.cached_api.send_qzone_msg(
-            **data
-        )
-
-        return response.get("tid")
 
     async def send_zone(
             self,
@@ -2656,16 +2161,11 @@ class SendMsg:
         :param ugc_right: 权限
         :param target_uins: 目标用户列表
         """
-        result = await self.zone_speed_limiter.submit(
-            self._send_zone(
-                content,
-                images,
-                ugc_right,
-                target_uins,
-            )
+        return await self._send_core.send_zone(
+            content = content,
+            images = images,
+            ugc_right = ugc_right,
+            target_uins = target_uins,
+            break_code = break_code,
+            continue_handler = continue_handler
         )
-
-        if not continue_handler:
-            self.break_handler(break_code)
-
-        return result

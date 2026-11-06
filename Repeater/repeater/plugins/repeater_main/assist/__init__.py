@@ -52,11 +52,13 @@ from .text_render import (
     RendedImage
 )
 from .send_msg import (
-    SpeedLimiter,
+    BaseSendCore,
+    SendCore,
     SendMsg,
     SEND_HOOK,
     RENDER_HOOK,
-    SendingTarget
+    SpeedLimiter,
+    SendType
 )
 from .chattts import (
     ChatTTSAPI,
@@ -164,11 +166,13 @@ __all__ = [
     "TextRender",
     "RendedImage",
 
-    "SpeedLimiter",
+    "BaseSendCore",
+    "SendCore",
     "SendMsg",
     "SEND_HOOK",
     "RENDER_HOOK",
-    "SendingTarget",
+    "SpeedLimiter",
+    "SendType",
     
     "ChatTTSAPI",
     "TTSResponse",

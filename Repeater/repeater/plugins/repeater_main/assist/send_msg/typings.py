@@ -1,17 +1,20 @@
 from typing import Protocol
 from nonebot.adapters.onebot.v11 import Message
-from .sending_target import SendingTarget
+from .send_type import SendType
 
 class SEND_HOOK(Protocol):
     async def __call__(
         self,
-        target: SendingTarget,
-        message: Message
+        type: SendType,
+        message: Message,
+        reply: bool = True,
+        break_code: int = 0,
+        continue_handler: bool = False
     ) -> bool | None:
         """
         Sending Hook
 
-        :param target: Sending Target
+        :param type: Sending Type
         :param message: Sending Message
         :return: Blocks output when False is returned, and passes when True or None is returned.
         """

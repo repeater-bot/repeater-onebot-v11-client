@@ -1,12 +1,19 @@
+from .send_core import (
+    BaseSendCore,
+    SendCore,
+)
 from .send_msg import SendMsg
 from .speed_limiter import SpeedLimiter
-from .sending_target import SendingTarget
+from .send_type import SendType
 from .typings import SEND_HOOK, RENDER_HOOK
 
 __all__ = [
+    "BaseSendCore",
+    "SendCore",
+
     "SendMsg",
     "SpeedLimiter",
-    "SendingTarget",
+    "SendType",
     "SEND_HOOK",
     "RENDER_HOOK",
 ]
