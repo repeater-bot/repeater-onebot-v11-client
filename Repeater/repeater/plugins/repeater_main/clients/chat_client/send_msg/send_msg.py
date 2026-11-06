@@ -8,7 +8,8 @@ from ....assist import (
     PersonaInfo,
     Response,
     SendMsg,
-    SendingTarget,
+    BaseSendCore,
+    SendType,
     SEND_HOOK,
     RENDER_HOOK,
     Scene,
@@ -28,33 +29,15 @@ class ChatSendMsg(SendMsg):
     def __init__(
             self,
             component: str,
-            persona_info: PersonaInfo,
+            send_core: BaseSendCore,
             response: Response[ChatResponse],
-            matcher: Type[Matcher] | None = None,
             reasoning_content_handler: Callable[[str], str] = lambda t: t,
             content_handler: Callable[[str], str] = lambda t: t,
             strip: bool = True,
-
-            reply: MessageSegment | None = None,
-            prefix: Message | None = None,
-            suffix: Message | None = None,
-            target: Scene | None = None,
-            send_target: SendingTarget = SendingTarget.AUTO,
-            send_hook: SEND_HOOK | None = None,
-            render_hook: RENDER_HOOK | None = None,
         ):
         super().__init__(
             component = component,
-            persona_info = persona_info,
-            matcher = matcher,
-
-            reply = reply,
-            prefix = prefix,
-            suffix = suffix,
-            target = target,
-            send_target = send_target,
-            send_hook = send_hook,
-            render_hook = render_hook,
+            send_core = send_core
         )
         self._response: Response[ChatResponse] = response
         self._chat_tts_api = ChatTTSAPI()
