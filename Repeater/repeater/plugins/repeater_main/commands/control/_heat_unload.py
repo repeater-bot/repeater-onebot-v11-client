@@ -165,7 +165,7 @@ class HeatUnload(CommandPackage):
         triggers = package_triggers(registered)
 
         try:
-            current_task_id = await CommandCaller.get_task_id()
+            current_task_id = CommandCaller.get_task_id()
         except RuntimeError:
             current_task_id = None
         protected = await call_chain(current_task_id) if current_task_id is not None else set()

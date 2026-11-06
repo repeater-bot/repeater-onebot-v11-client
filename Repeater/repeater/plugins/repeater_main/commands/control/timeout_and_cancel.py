@@ -1,7 +1,7 @@
 import re
 import asyncio
 
-from ...assist import PersonaInfo, SendMsg, SendingTarget
+from ...assist import PersonaInfo, SendMsg, SendType
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
@@ -63,17 +63,17 @@ class TimeoutAndCancel(CommandPackage):
                 await send_msg.send_error(f"Command {command} instance not found: {e}")
                 return
 
-            copyed_persona_info = persona_info.copy(
+            copied_persona_info = persona_info.copy(
                 args = args
             )
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component,
-                send_target = SendingTarget.NULL
+                send_target = SendType.NULL
             )
             running = await CommandCaller.horizontal_enter_wait_created(
                 package_instance,
-                copyed_persona_info,
-                copyed_send_msg
+                copied_persona_info,
+                copied_send_msg
             )
 
             try:

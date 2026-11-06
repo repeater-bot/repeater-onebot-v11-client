@@ -65,7 +65,7 @@ class TextTrigger(CommandPackage):
                     )
                 )
 
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 persona_info = new_commands,
                 reply = persona_info.reply,
             )
@@ -73,5 +73,5 @@ class TextTrigger(CommandPackage):
             await CommandCaller.horizontal_call(
                 Serial,
                 persona_info = new_commands,
-                send_msg = copyed_send_msg
+                send_msg = copied_send_msg
             )

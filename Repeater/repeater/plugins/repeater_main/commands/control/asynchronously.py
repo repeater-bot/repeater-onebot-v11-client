@@ -1,4 +1,4 @@
-from ...assist import PersonaInfo, SendMsg, SendingTarget
+from ...assist import PersonaInfo, SendMsg, SendType
 from ...cmd_info import CmdTypes
 from ...command_register import(
     CommandCaller,
@@ -44,17 +44,17 @@ class Asynchronously(CommandPackage):
                 await send_msg.send_error(f"Command instance {package.component} not found: {e}")
                 return
 
-            copyed_persona_info = persona_info.copy(
+            copied_persona_info = persona_info.copy(
                 args = args
             )
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component,
-                send_target = SendingTarget.API
+                send_target = SendType.API
             )
             package = await CommandCaller.horizontal_enter_wait_created(
                 package_instance,
-                copyed_persona_info,
-                copyed_send_msg
+                copied_persona_info,
+                copied_send_msg
             )
             await send_msg.send_text(str(package.task_id))
         else:

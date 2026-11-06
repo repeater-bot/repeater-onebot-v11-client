@@ -87,13 +87,13 @@ class RemoteWaitCall(CommandPackage):
 
             info = result.copy(args = args)
             
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component
             )
             await CommandCaller.horizontal_call(
                 package_instance,
                 info,
-                copyed_send_msg
+                copied_send_msg
             )
         else:
             await send_msg.send_error("Invalid command format")

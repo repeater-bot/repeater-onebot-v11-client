@@ -78,10 +78,10 @@ class Loop(CommandPackage):
                 await send_msg.send_error(f"Command instance {command} not found: {e}")
                 return
 
-            copyed_persona_info = persona_info.copy(
+            copied_persona_info = persona_info.copy(
                 args = args
             )
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component
             )
             if times is None:
@@ -93,8 +93,8 @@ class Loop(CommandPackage):
                     )
                     result = await CommandCaller.horizontal_call(
                         package_instance,
-                        copyed_persona_info,
-                        copyed_send_msg
+                        copied_persona_info,
+                        copied_send_msg
                     )
 
                     if isinstance(result, SubCmdBreaked):
@@ -112,8 +112,8 @@ class Loop(CommandPackage):
                     )
                     await CommandCaller.horizontal_call(
                         package_instance,
-                        copyed_persona_info,
-                        copyed_send_msg
+                        copied_persona_info,
+                        copied_send_msg
                     )
         else:
             await send_msg.send_error("Invalid command format")
