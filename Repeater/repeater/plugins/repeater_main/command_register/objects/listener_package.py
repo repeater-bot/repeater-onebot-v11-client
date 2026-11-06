@@ -94,8 +94,8 @@ class ListenerPackage(Awaitable[PersonaInfo]):
         If the future is already done when this method is called, raises InvalidStateError.
         """
         if set_sponsor:
-            copyed_info = result.copy(task_id = self.sponsor)
-            self.future.set_result(copyed_info)
+            copied_info = result.copy(task_id = self.sponsor)
+            self.future.set_result(copied_info)
         else:
             self.future.set_result(result.copy())
     
