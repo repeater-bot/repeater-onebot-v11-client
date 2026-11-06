@@ -22,6 +22,7 @@ class TextRender(BaseClient):
             no_escape: bool | None = None,
             quality: int | None = None
         ) -> Response[RendedImage]:
+        
         render_request = RenderRequest(
             text = text,
             style = style,
