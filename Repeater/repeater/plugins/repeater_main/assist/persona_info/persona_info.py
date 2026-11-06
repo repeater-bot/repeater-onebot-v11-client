@@ -452,32 +452,20 @@ class PersonaInfo:
             ) for event in messages
         ]
     
-    async def from_reply(self, msg_id: str | None = None) -> PersonaInfo | None:
+    async def from_reply_msgs(self) -> list[PersonaInfo]:
         """
         从回复引用构建 PersonaInfo 实例
-
-        注：解析时，它会默认消息段中只有一个 reply 消息段，
-        如果有存在多个，则使用第一个
         """
-        if msg_id is None:
-            event = await self.get_message_event()
-            reply_id: str | None = None
-            for message in event.message:
-                if message.type == "reply":
-                    reply_id = message.data["id"]
-                    break
-            if reply_id is None:
-                return None
-        else:
-            reply_id = msg_id
-        
-        reply_event = await self.get_message_event(message_id = int(reply_id))
-        persona_info = self.copy(
-            bot = self.bot,
-            event = reply_event,
-            args = reply_event.message,
-        )
-        return persona_info
+        reply_events = await self.get_reply_msgs()
+        persona_info_list = [
+            self.copy(
+                bot = self.bot,
+                event = reply_event,
+                args = reply_event.message,
+            )
+            for reply_event in reply_events
+        ]
+        return persona_info_list
 
     async def from_iter_message_history(
             self,
@@ -1132,7 +1120,7 @@ class PersonaInfo:
                 e = e
             )
     
-    async def get_reply_msgs(self, message: Message | None = None) -> list[MessageEvent]:
+    async def get_reply_msgs(self) -> list[MessageEvent]:
         """
         获取回复消息
 
