@@ -51,7 +51,11 @@ class ChatLoop(BaseChat):
             await session.start()
             await session.run()
         finally:
-            with suppress(asyncio.CancelledError):
-                await session.close()
-            async with self.scenes_lock:
-                self.scenes.pop(persona_info.scene, None)
+            # 场景登记必须在清理之后一定被摘掉：清理抛什么都不能让这个 scene 永久
+            # 停在「已在运行」的状态里，否则重开会被自己挡住
+            try:
+                with suppress(asyncio.CancelledError):
+                    await session.close()
+            finally:
+                async with self.scenes_lock:
+                    self.scenes.pop(persona_info.scene, None)

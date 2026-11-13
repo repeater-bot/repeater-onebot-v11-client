@@ -1,7 +1,8 @@
 import time
-from ...assist import Namespace, MessageSource
+from ..namespace import Namespace
+from ..scene import MessageSource
 from nonebot.adapters.onebot.v11 import MessageEvent, Message, Bot
-from nonebot.adapters.onebot.v11.event import Reply, Sender
+from nonebot.adapters.onebot.v11.event import Sender
 
 def make_new_message_event(
     namespace: Namespace,

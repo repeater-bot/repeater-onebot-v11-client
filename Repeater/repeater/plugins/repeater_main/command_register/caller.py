@@ -1211,11 +1211,12 @@ class CommandCaller:
                 continue_handler = continue_handler
             )
             async with cls.send_listener_lock:
-                listener = cls.send_listener_map.pop(persona_info.scene)
+                listener = cls.send_listener_map.pop(persona_info.scene, None)
                 if listener is not None:
                     for listener_id in listener:
-                        listener = cls.send_listener.pop(listener_id)
-                        listener.set_result(send_datas)
+                        listener = cls.send_listener.pop(listener_id, None)
+                        if listener is not None:
+                            listener.set_result(send_datas)
 
         send_hooks = send_msg.send_core.send_hook or []
         send_hooks.append(get_message_outputs)

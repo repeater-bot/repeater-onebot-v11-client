@@ -75,11 +75,32 @@ class ChatLoopSession:
         """
         关停：摘监听、收监听任务、摘状态、补退出提示。
 
-        每一步单独兜异常，前一步失败不该让后面的清理不执行。顺序上状态先于退出提示，
-        这样循环一停 SmartAT 就能接手，不用等退出提示那几秒。
+        清理本身放到独立任务里跑，再在 shield 后面等它。原因是关停往往发生在「本任务
+        正被取消」的时候：如果取消打断了清理，恰好在「摘状态」之前断掉的话，SmartAT
+        会一直认为这个场景被占用，那个场景就再也不回话了——看起来就像死锁。所以这里
+        先吞掉取消把清理等完，再把取消继续往上传。
         """
 
         self._closing = True
+        cleanup = asyncio.ensure_future(self._run_cleanup())
+        cancelled = False
+        while True:
+            try:
+                await asyncio.shield(cleanup)
+                break
+            except asyncio.CancelledError:
+                if cleanup.done():
+                    raise
+                # 清理还没跑完：这次取消先吞掉，等它结束再把取消上抛
+                cancelled = True
+        if cancelled:
+            raise asyncio.CancelledError()
+
+    async def _run_cleanup(self) -> None:
+        """
+        逐项清理；每一步单独兜异常，前一步失败不该让后面的清理不执行。
+        """
+
         for step in (self._stop_collector, self._finish_status, self._send_exit_prompt):
             try:
                 await step()
@@ -149,15 +170,31 @@ class ChatLoopSession:
             )
 
             if urgent:
-                # 在这里消费标记，而不是在 _submit 里：send_messages 是个 await，
-                # 期间到达的点名会被「发送完成后无条件清零」静默吞掉
-                self._tome_pending = False
-                sent = await self._submit(
-                    self._drain(min(pending, batch_cap)),
-                    f"direct call by mention, p={probability:.3f}",
-                    direct_call = True,
+                # 取一批正常大小的，先把积压前面那段发出去；如果叫我的那条还在后面，
+                # 提交完别清标记，下一轮会立刻再取一批，直到把叫我那条也发出去。
+                # 所以积压比单批上限多时，会分成「前面一批、后面一批」接连发出。
+                batch = self._drain(batch_cap)
+                # 只有真正装着叫我消息的那一批才算「点名直接调用」。一段积压被拆成
+                # 几批时，如果每批都按直接调用记账，一份 @ 会吃掉好几份额度、把阈值推高
+                called = any(
+                    message.message_id in self._tome_ids
+                    for message in batch
                 )
-                if not sent:
+                sent = await self._submit(
+                    batch,
+                    (
+                        f"direct call by mention, p={probability:.3f}"
+                        if called
+                        else f"mention backlog flush, p={probability:.3f}"
+                    ),
+                    direct_call = called,
+                )
+                if sent:
+                    # 用「还有没有没排进批次的叫我消息」决定要不要继续，而不是无条件
+                    # 清零：send_messages 是 await，期间到达的点名也已经加进 _tome_ids，
+                    # 这里一并被下一轮接住
+                    self._tome_pending = bool(self._tome_ids)
+                else:
                     self._tome_pending = True
                     await self._wait_next(self._retry_wait(pending))
                 continue
