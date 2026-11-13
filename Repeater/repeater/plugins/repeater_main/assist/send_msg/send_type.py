@@ -1,6 +1,9 @@
 from enum import Enum, auto
 
-class SendingTarget(Enum):
+class SendType(Enum):
+    """
+    发送处理类型
+    """
     AUTO = auto()
     MATCHER = auto()
     API = auto()

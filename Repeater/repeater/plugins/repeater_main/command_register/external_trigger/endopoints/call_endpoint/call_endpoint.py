@@ -1,11 +1,10 @@
 from fastapi import HTTPException
 from nonebot.adapters.onebot.v11 import Message
-from .....assist import Namespace
+from .....assist import Namespace, make_new_message_event
 from ...router import root_router
 from .request import ExternalTriggerRequest
 from .response import ExternalTriggerResponse
 from ...register import register_external_trigger
-from ...make_message_event import make_message_event
 from ...config import external_trigger_config
 
 @root_router.post("/call")
@@ -35,7 +34,7 @@ async def external_trigger_call(
             args = Message(request.args)
         namespace = Namespace.from_str(request.namespace)
 
-        event = make_message_event(
+        event = make_new_message_event(
             self_id = int(request.bot_id),
             namespace = namespace,
             message = message,

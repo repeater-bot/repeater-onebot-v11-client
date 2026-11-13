@@ -2,7 +2,13 @@ import base64
 
 from ...client_configs import *
 from ...assist import Response, BaseClient
-from .request import DestinationRequest, EditRequest, CopyRangeRequest
+from .request import (
+    DestinationRequest,
+    EditRequest,
+    CopyRangeRequest,
+    SQLitePathRequest,
+    SQLiteExecuteRequest,
+)
 from .response import (
     FileInfo,
     DeleteResult,
@@ -349,3 +355,46 @@ class WorkspaceClient(BaseClient):
             httpx_response = response,
             model = DeleteResult
         )
+
+    async def sqlite_create(self, path: str) -> Response:
+        response = await self.client.post(
+            url = self.join_url(SQLITE_CREATE_ROUTE),
+            json = SQLitePathRequest(path = path).model_dump()
+        )
+        return Response(httpx_response = response)
+
+    async def sqlite_open(self, path: str) -> Response:
+        response = await self.client.post(
+            url = self.join_url(SQLITE_OPEN_ROUTE),
+            json = SQLitePathRequest(path = path).model_dump()
+        )
+        return Response(httpx_response = response)
+
+    async def sqlite_list(self) -> Response:
+        response = await self.client.get(
+            url = self.join_url(SQLITE_LIST_ROUTE)
+        )
+        return Response(httpx_response = response)
+
+    async def sqlite_execute(
+            self,
+            sqlite_id: str,
+            sql: str,
+            params: list | dict | None = None
+        ) -> Response:
+        response = await self.client.post(
+            url = self.join_url(
+                SQLITE_EXECUTE_ROUTE.format(sqlite_id = sqlite_id)
+            ),
+            json = SQLiteExecuteRequest(
+                sql = sql,
+                params = params
+            ).model_dump()
+        )
+        return Response(httpx_response = response)
+
+    async def sqlite_close(self, sqlite_id: str) -> Response:
+        response = await self.client.delete(
+            url = self.join_url(SQLITE_CLOSE_ROUTE.format(sqlite_id = sqlite_id))
+        )
+        return Response(httpx_response = response)

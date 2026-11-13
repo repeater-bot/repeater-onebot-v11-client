@@ -1,4 +1,4 @@
-import re
+import regex
 import asyncio
 
 from ...assist import PersonaInfo, SendMsg
@@ -38,18 +38,22 @@ class TextTrigger(CommandPackage):
         lines = persona_info.message_stripped_str.split("\n", 1)
         if not lines:
             return
-        regex = lines[0]
+        regex_str = lines[0]
         commands = lines[1]
         try:
-            pattern = re.compile(regex)
-        except re.error as e:
+            pattern = regex.compile(regex_str)
+        except regex.error as e:
             await send_msg.send_error(f"Invalid regex: {e}")
             return
 
         while True:
             new_message = await CommandCaller.wait_message(persona_info.namespace)
 
-            if not await asyncio.to_thread(pattern.match, new_message.message_stripped_str):
+            if not await asyncio.to_thread(
+                pattern.match,
+                new_message.message_stripped_str,
+                timeout = 60
+            ):
                 continue
 
             if commands:
@@ -61,7 +65,7 @@ class TextTrigger(CommandPackage):
                     )
                 )
 
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 persona_info = new_commands,
                 reply = persona_info.reply,
             )
@@ -69,5 +73,5 @@ class TextTrigger(CommandPackage):
             await CommandCaller.horizontal_call(
                 Serial,
                 persona_info = new_commands,
-                send_msg = copyed_send_msg
+                send_msg = copied_send_msg
             )

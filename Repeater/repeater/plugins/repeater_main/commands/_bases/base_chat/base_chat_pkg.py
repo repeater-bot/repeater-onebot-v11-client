@@ -106,7 +106,8 @@ class BaseChat(CommandPackage):
     ) -> str:
         forward_msgs = await persona_info.get_forward_msgs()
         if forward_msgs:
-            forward_msgs_text = persona_info.generates_text_from_messages_list(forward_msgs)
+            forward_msgs_texts = [persona_info.generates_text_from_messages_list(forward_msg) for forward_msg in forward_msgs]
+            forward_msgs_text = "\n\n".join(forward_msgs_texts)
             message_text = f"Forwarded messages:\n{forward_msgs_text}\n\n---\n\n"
         else:
             message_text = ""
@@ -202,19 +203,8 @@ class BaseChat(CommandPackage):
     def make_send_msg(self, send_msg: SendMsg, response: Response[ChatResponse]) -> ChatSendMsg:
         chat_send_msg = ChatSendMsg(
             component = send_msg.component,
-            persona_info = send_msg.persona_info,
-            matcher = send_msg.matcher,
             response = response,
-            reasoning_content_handler = self.reason_filters,
-            content_handler = self.filters,
-
-            reply = send_msg.reply,
-            prefix = send_msg.prefix,
-            suffix = send_msg.suffix,
-            target = send_msg.target,
-            send_target = send_msg.sending_target,
-            send_hook = send_msg.send_hook,
-            render_hook = send_msg.render_hook,
+            send_core = send_msg.send_core
         )
         return chat_send_msg
 

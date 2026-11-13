@@ -9,7 +9,7 @@ from ...assist import (
     SendMsg,
     Scene,
     MessageSource,
-    SendingTarget
+    SendType
 )
 
 @CommandCaller.register
@@ -52,7 +52,7 @@ class RemoteEcho(CommandPackage):
                             source = MessageSource.GROUP,
                             id = id,
                         ),
-                        send_target = SendingTarget.API,
+                        send_target = SendType.API,
                     )
                 case "private":
                     remote_send_msg = send_msg.copy(
@@ -60,7 +60,7 @@ class RemoteEcho(CommandPackage):
                             source = MessageSource.PRIVATE,
                             id = id,
                         ),
-                        send_target = SendingTarget.API,
+                        send_target = SendType.API,
                     )
                 case _:
                     await send_msg.send_prompt("Invalid mode, only 'group' or 'private' is allowed.")

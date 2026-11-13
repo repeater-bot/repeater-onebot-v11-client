@@ -7,7 +7,7 @@ from datetime import datetime
 from ..assist import (
     PersonaInfo,
     SendMsg,
-    SendingTarget,
+    SendType,
     Scene,
     Namespace,
     Variables,
@@ -44,6 +44,8 @@ from .objects import (
     LettersPackage,
     PipePackage,
     StatusPackage,
+    ListenSendPackage,
+    SendDatas,
 )
 from .external_trigger import register_external_trigger, et_server, ETCHandlerResult
 from contextvars import ContextVar
@@ -80,6 +82,11 @@ class CommandCaller:
     message_listener: dict[uuid.UUID, ListenerPackage] = {}
     message_listener_map: dict[Namespace | Scene, set[uuid.UUID]] = {}
     message_listener_lock: asyncio.Lock = asyncio.Lock()
+
+    # 发送监听器
+    send_listener: dict[uuid.UUID, ListenSendPackage] = {}
+    send_listener_map: dict[Scene, set[uuid.UUID]] = {}
+    send_listener_lock: asyncio.Lock = asyncio.Lock()
 
     # 信件监听器
     # 
@@ -349,7 +356,7 @@ class CommandCaller:
             cls.reverse_call_index = {}
 
     @classmethod
-    async def get_task_id(cls) -> uuid.UUID:
+    def get_task_id(cls) -> uuid.UUID:
         """
         Get task id.
 
@@ -448,6 +455,15 @@ class CommandCaller:
             if task_id not in runnings:
                 return None
             return cls.runnings.get(task_id)
+
+    @classmethod
+    async def now_running(cls) -> RunningPackage | None:
+        """
+        Gets the RunningPackage that is currently running.
+        """
+        async with cls.running_lock:
+            task = cls.get_task_id()
+            return cls.runnings.get(task)
 
     @classmethod
     async def get_global_running(cls, task_id: uuid.UUID) -> RunningPackage | None:
@@ -605,6 +621,7 @@ class CommandCaller:
         cls,
         target: Namespace | Scene,
         timeout: int | float | None = None,
+        auto_cancel: bool = False,
         block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> PersonaInfo:
         """
@@ -612,6 +629,7 @@ class CommandCaller:
 
         :param target: The target of listening.
         :param timeout: The timeout of waiting.
+        :param auto_cancel: Whether to cancel the waiting when the message is received.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: `PersonaInfo` object.
@@ -619,6 +637,7 @@ class CommandCaller:
         future = await cls.message_future(
             target = target,
             timeout = timeout,
+            auto_cancel = auto_cancel,
             block_propagation = block_propagation
         )
         result = await future
@@ -629,6 +648,7 @@ class CommandCaller:
         cls,
         target: Namespace | Scene,
         timeout: int | float | None = None,
+        auto_cancel: bool = False,
         block_propagation: bool | Callable[[PersonaInfo], bool] = False
     ) -> ListenerPackage:
         """
@@ -636,6 +656,7 @@ class CommandCaller:
 
         :param target: The target of listening.
         :param timeout: The timeout of waiting.
+        :param auto_cancel: Whether to cancel the Future when it is done.
         :param block_propagation: Prevents messages from being passed backward to other handlers.
         :param listen_group: Whether to listen to group messages.
         :return: The `Future` object.
@@ -694,14 +715,30 @@ class CommandCaller:
                                 listener.set_exception(
                                     asyncio.TimeoutError(f"Message Future {listener_id} Timeout.")
                                 )
-            task = asyncio.create_task(
+            timeout_task = asyncio.create_task(
                 timeout_handler()
+            )
+
+        if auto_cancel:
+            async def cancel_handler():
+                nonlocal cls, listener_id
+                try:
+                    await future
+                except Exception:
+                    pass
+                finally:
+                    task = asyncio.create_task(
+                        cls.cancel_message_future(listener_id)
+                    )
+
+            cancel_task = asyncio.create_task(
+                cancel_handler()
             )
 
         return listen_package
 
     @classmethod
-    async def cancel_wait_message_listener(cls, listener_id: uuid.UUID) -> bool:
+    async def cancel_message_future(cls, listener_id: uuid.UUID) -> bool:
         """
         Cancel the wait message listener.
 
@@ -724,6 +761,103 @@ class CommandCaller:
                             cls.message_listener_map.pop(listener.target, None)
                             
                 cls.message_listener.pop(listener_id, None)
+                logger.info(
+                    "Cancel listener: {listener_id}",
+                    listener_id = listener_id,
+                )
+                return True
+        return False
+    
+    @classmethod
+    async def wait_send(cls, target: Scene, auto_cancel: bool = False) -> SendDatas:
+        """
+        Wait for a message.
+
+        :param target: The target scene.
+        :return: The listen send package.
+        """
+        package = await cls.send_future(
+            target = target,
+            auto_cancel = auto_cancel,
+        )
+        return await package
+
+    @classmethod
+    async def send_future(cls, target: Scene, auto_cancel: bool = False) -> ListenSendPackage:
+        """
+        Send a future message.
+
+        :param target: The target scene.
+        :return: The listen send package.
+        """
+        source: uuid.UUID | None = cls._task_id.get()
+        identity: CommandPackage[Any] | None = cls._identity.get()
+        if source is None or identity is None:
+            raise RuntimeError(f"This interface is not used in the {cls.__name__} context.")
+        listener_id = uuid.uuid4()
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        future: asyncio.Future[SendDatas] = loop.create_future()
+
+        listen_package = ListenSendPackage(
+            future = future,
+            target = target,
+            id = listener_id,
+            sponsor = source
+        )
+
+        async with cls.send_listener_lock:
+            logger.info(
+                "{handler}({task_id}) Create Wait {target} Send Message Task: {future}",
+                handler = identity.component,
+                task_id = source,
+                target = str(target),
+                future = repr(future),
+            )
+            cls.send_listener_map.setdefault(target, set()).add(listener_id)
+            cls.send_listener[listener_id] = listen_package
+
+        if auto_cancel:
+            async def cancel_handler():
+                nonlocal cls, listener_id
+                try:
+                    await future
+                except Exception:
+                    pass
+                finally:
+                    task = asyncio.create_task(
+                        cls.cancel_send_future(listener_id)
+                    )
+
+            cancel_task = asyncio.create_task(
+                cancel_handler()
+            )
+
+        return listen_package
+
+    @classmethod
+    async def cancel_send_future(cls, listener_id: uuid.UUID) -> bool:
+        """
+        Cancel the send future
+
+        :param listener_id: the listener id
+        :return: True if the future is cancelled, False otherwise
+        """
+        async with cls.send_listener_lock:
+            logger.info(
+                "Cancel Wait Message Task {listener_id}",
+                listener_id = listener_id,
+            )
+            if listener_id in cls.send_listener:
+                listener = cls.send_listener.get(listener_id)
+                if listener is not None:
+                    listener.cancel()
+                    listener_map = cls.send_listener_map.get(listener.target)
+                    if listener_map is not None:
+                        listener_map.discard(listener_id)
+                        if not listener_map:
+                            cls.send_listener_map.pop(listener.target, None)
+                            
+                cls.send_listener.pop(listener_id, None)
                 logger.info(
                     "Cancel listener: {listener_id}",
                     listener_id = listener_id,
@@ -990,7 +1124,7 @@ class CommandCaller:
                 start_time = time.time_ns(),
                 start_monotonic_time = time.perf_counter_ns(),
                 package = package,
-                matcher = send_msg.matcher,
+                matcher = send_msg.send_core.matcher,
                 persona_info = persona_info,
                 send_msg = send_msg,
                 task = task
@@ -1030,6 +1164,7 @@ class CommandCaller:
                     package_running.discard(task_id)
                     if not package_running:
                         cls.running_packages.pop(package_type, None)
+                    
     
     @classmethod
     async def enter_handler(
@@ -1059,13 +1194,47 @@ class CommandCaller:
         cls._identity.set(package)
         cls._task_id.set(task_id)
 
+        async def get_message_outputs(
+            type: SendType,
+            message: Message,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ):
+            nonlocal cls, task_id, persona_info
+
+            send_datas = SendDatas(
+                type = type,
+                message = message,
+                reply = reply,
+                break_code = break_code,
+                continue_handler = continue_handler
+            )
+            async with cls.send_listener_lock:
+                listener = cls.send_listener_map.pop(persona_info.scene, None)
+                if listener is not None:
+                    for listener_id in listener:
+                        listener = cls.send_listener.pop(listener_id, None)
+                        if listener is not None:
+                            listener.set_result(send_datas)
+
+        send_hooks = send_msg.send_core.send_hook or []
+        send_hooks.append(get_message_outputs)
+        copied_send_core = send_msg.send_core.copy(
+            send_hook = send_hooks
+        )
+
+        copied_send_msg = send_msg.copy(
+            send_core = copied_send_core
+        )
+
         start_time = time.perf_counter_ns()
         result = await cls._enter_handler(
-            task_id,
-            package,
-            persona_info,
-            send_msg,
-            debug_mode,
+            task_id = task_id,
+            package = package,
+            persona_info = persona_info,
+            send_msg = copied_send_msg,
+            debug_mode = debug_mode,
         )
         end_time = time.perf_counter_ns()
 
@@ -1100,7 +1269,7 @@ class CommandCaller:
         debug_mode: bool = False,
     ) -> T_Handler_Result | Any:
         """
-        Enter the message handler.
+        Enter the message handler lifespan.
 
         :param task_id: The task id.
         :param package: The command package.
@@ -1384,7 +1553,13 @@ class CommandCaller:
         )
 
         outputs: list[Message] = []
-        async def get_message_outputs(target: SendingTarget, message: Message):
+        async def get_message_outputs(
+            type: SendType,
+            message: Message,
+            reply: bool = True,
+            break_code: int = 0,
+            continue_handler: bool = False
+        ):
             nonlocal outputs
             outputs.append(message)
 
@@ -1406,16 +1581,26 @@ class CommandCaller:
             nonlocal rendered_texts
             rendered_texts.append(text)
 
-        send_msg_copy = send_msg.copy(
-            send_hook = get_message_outputs,
-            render_hook = get_rendered_text
+        send_hooks = send_msg.send_core.send_hook or []
+        render_hooks = send_msg.send_core.render_hook or []
+
+        send_hooks.append(get_message_outputs)
+        render_hooks.append(get_rendered_text)
+
+        copied_send_core = send_msg.send_core.copy(
+            send_hook = send_hooks,
+            render_hook = render_hooks
+        )
+
+        copied_send_msg = send_msg.copy(
+            send_core = copied_send_core
         )
 
         result = await cls.run_handle(
             task_id = task_id,
             package = package_instance,
             persona_info = persona_info,
-            send_msg = send_msg_copy,
+            send_msg = copied_send_msg,
             debug_mode = debug_mode
         )
         return outputs, rendered_texts, result

@@ -402,8 +402,7 @@ class PersonaInfo:
 
     async def from_message_history(
             self,
-            source: MessageSource,
-            id: str | int = "",
+            scene: Scene,
             message_id: int = 0,
             count: int = 20,
             reverse_order: bool = False,
@@ -413,19 +412,20 @@ class PersonaInfo:
         """
         从消息历史构建 PersonaInfo 实例
 
-        :param source: 消息来源
-        :param id: 群组 ID
+        :param scene: 场景
         :param message_id: 消息 ID
         :param count: 数量
         :param reverse_order: 是否倒序
         :param copydata: 是否复制数据
         :param deepcopy: 是否深拷贝数据
         """
-        match source:
+        if scene.id is None:
+            raise ValueError("scene.id is None")
+        match scene.source:
             case MessageSource.GROUP:
                 messages = await get_group_message_history(
                     bot = self.cached_api,
-                    group_id = int(id),
+                    group_id = int(scene.id),
                     message_id = message_id,
                     count = count,
                     reverse_order = reverse_order
@@ -433,7 +433,7 @@ class PersonaInfo:
             case MessageSource.PRIVATE:
                 messages = await get_private_message_history(
                     bot = self.cached_api,
-                    user_id = int(id),
+                    user_id = int(scene.id),
                     message_id = message_id,
                     count = count,
                     reverse_order = reverse_order
@@ -452,32 +452,20 @@ class PersonaInfo:
             ) for event in messages
         ]
     
-    async def from_reply(self, msg_id: str | None = None) -> PersonaInfo | None:
+    async def from_reply_msgs(self) -> list[PersonaInfo]:
         """
         从回复引用构建 PersonaInfo 实例
-
-        注：解析时，它会默认消息段中只有一个 reply 消息段，
-        如果有存在多个，则使用第一个
         """
-        if msg_id is None:
-            event = await self.get_message_event()
-            reply_id: str | None = None
-            for message in event.message:
-                if message.type == "reply":
-                    reply_id = message.data["id"]
-                    break
-            if reply_id is None:
-                return None
-        else:
-            reply_id = msg_id
-        
-        reply_event = await self.get_message_event(message_id = int(reply_id))
-        persona_info = self.copy(
-            bot = self.bot,
-            event = reply_event,
-            args = reply_event.message,
-        )
-        return persona_info
+        reply_events = await self.get_reply_msgs()
+        persona_info_list = [
+            self.copy(
+                bot = self.bot,
+                event = reply_event,
+                args = reply_event.message,
+            )
+            for reply_event in reply_events
+        ]
+        return persona_info_list
 
     async def from_iter_message_history(
             self,
@@ -1132,7 +1120,7 @@ class PersonaInfo:
                 e = e
             )
     
-    async def get_reply_msgs(self, message: Message | None = None) -> list[MessageEvent]:
+    async def get_reply_msgs(self) -> list[MessageEvent]:
         """
         获取回复消息
 

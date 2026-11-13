@@ -1,5 +1,9 @@
 from .workspace_api import WorkspaceClient
-from .request import DestinationRequest
+from .request import (
+    DestinationRequest,
+    SQLitePathRequest,
+    SQLiteExecuteRequest,
+)
 from .response import (
     FileInfo,
     DeleteResult,
@@ -10,6 +14,8 @@ from .response import (
 __all__ = [
     "WorkspaceClient",
     "DestinationRequest",
+    "SQLitePathRequest",
+    "SQLiteExecuteRequest",
     "FileInfo",
     "DeleteResult",
     "MoveResult",

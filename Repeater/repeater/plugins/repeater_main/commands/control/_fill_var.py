@@ -23,9 +23,9 @@ def fill_var(info: PersonaInfo, vars: Variables) -> PersonaInfo:
         else:
             new_messages.append(line)
 
-    copyed_info = info.copy(
+    copied_info = info.copy(
         args = info.make_message(
             message = "\n".join(new_messages)
         )
     )
-    return copyed_info
+    return copied_info

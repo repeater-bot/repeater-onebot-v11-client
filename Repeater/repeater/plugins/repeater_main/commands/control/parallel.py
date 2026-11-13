@@ -58,16 +58,16 @@ class Parallel(CommandPackage):
             except KeyError:
                 await send_msg.send_error(f"[{index}] Handler instance not found")
                 send_msg.break_handler()
-            copyed_persona_info = persona_info.copy(args = args)
-            copyed_send_msg = send_msg.copy(
+            copied_persona_info = persona_info.copy(args = args)
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component
             )
             tasks.append(
                 asyncio.create_task(
                     CommandCaller.horizontal_call(
                         package_instance,
-                        persona_info = fill_var(copyed_persona_info, user_variables),
-                        send_msg = copyed_send_msg
+                        persona_info = fill_var(copied_persona_info, user_variables),
+                        send_msg = copied_send_msg
                     )
                 )
             )

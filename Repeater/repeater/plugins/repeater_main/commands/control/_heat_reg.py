@@ -7,11 +7,11 @@ from ...command_register import(
     CommandPackage
 )
 from ...logger import logger
-from .heat_load import (
+from ._heat_load import (
     find_commands_anchor,
     split_module_name
 )
-from .heat_unload import package_triggers
+from ._heat_unload import package_triggers
 
 def absolute_parts(package_name: str, parts: list[str]) -> list[str]:
     """The full dotted parts of the class path.

@@ -53,15 +53,15 @@ class Serial(CommandPackage):
             except KeyError:
                 await send_msg.send_error(f"[{index}] Handler instance not found")
                 send_msg.break_handler()
-            copyed_persona_info = persona_info.copy(args = args)
-            copyed_send_msg = send_msg.copy(
+            copied_persona_info = persona_info.copy(args = args)
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component
             )
             tasks.append(
                 (
                     package_instance,
-                    copyed_persona_info,
-                    copyed_send_msg
+                    copied_persona_info,
+                    copied_send_msg
                 )
             )
 

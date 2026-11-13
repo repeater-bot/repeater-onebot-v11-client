@@ -9,8 +9,9 @@ from abc import (
 from ...assist import (
     PersonaInfo,
     EnterType,
+    SendCore,
     SendMsg,
-    SendingTarget,
+    SendType,
     MessageSource,
     is_iterable,
 )
@@ -236,9 +237,11 @@ class CommandPackage(ABC, Generic[T]):
         )
         send_msg = SendMsg(
             component = self.component,
-            persona_info = persona_info,
-            matcher = matcher,
-            reply = persona_info.reply
+            send_core = SendCore(
+                persona_info = persona_info,
+                matcher = matcher,
+                reply = persona_info.reply
+            )
         )
         return persona_info, send_msg
 
@@ -266,11 +269,39 @@ class CommandPackage(ABC, Generic[T]):
         )
         send_msg = SendMsg(
             component = self.component,
-            persona_info = persona_info,
-            matcher = matcher,
-            reply = persona_info.reply
+            send_core = SendCore(
+                persona_info = persona_info,
+                matcher = matcher,
+                reply = persona_info.reply
+            )
         )
         return persona_info, send_msg
+    
+    async def horizontal_enter(self, persona_info: PersonaInfo, send_msg: SendMsg | None = None, task_id: uuid.UUID | None = None) -> tuple[PersonaInfo, SendMsg]:
+        """
+        Called by CommandCaller.horizontal_call and horizontal_enter_wait_created before a
+        horizontal call; the pair returned here is what the sub-call runs with.
+
+        The default implementation returns a copy of persona_info with enter_type Horizontal and
+        the new task id, creating a SendMsg only when send_msg is None - a passed one is returned
+        unchanged.
+
+        :param persona_info: PersonaInfo object of the calling Handler
+        :param send_msg: SendMsg object of the calling Handler, None means "create one"
+        :param task_id: Task ID assigned to the horizontal call
+        :return: PersonaInfo object, SendMsg object that the sub-call will run with
+        """
+        persona_info_copy = PersonaInfo.from_horizontal(persona_info, task_id = task_id)
+        if send_msg is None:
+            send_msg = SendMsg(
+                component = self.component,
+                send_core = SendCore(
+                    persona_info = persona_info,
+                    matcher = None,
+                    reply = persona_info.reply
+                )
+            )
+        return persona_info_copy, send_msg
 
     async def external_enter(self, task_id: uuid.UUID, bot: Bot, event: MessageEvent, args: Message | None, output: bool = True) -> tuple[PersonaInfo, SendMsg]:
         """
@@ -296,36 +327,13 @@ class CommandPackage(ABC, Generic[T]):
         )
         send_msg = SendMsg(
             component = self.component,
-            persona_info = persona_info,
-            matcher = None
-        )
-        if not output:
-            send_msg.sending_target = SendingTarget.BUFFER
-        return persona_info, send_msg
-
-    
-    async def horizontal_enter(self, persona_info: PersonaInfo, send_msg: SendMsg | None = None, task_id: uuid.UUID | None = None) -> tuple[PersonaInfo, SendMsg]:
-        """
-        Called by CommandCaller.horizontal_call and horizontal_enter_wait_created before a
-        horizontal call; the pair returned here is what the sub-call runs with.
-
-        The default implementation returns a copy of persona_info with enter_type Horizontal and
-        the new task id, creating a SendMsg only when send_msg is None - a passed one is returned
-        unchanged.
-
-        :param persona_info: PersonaInfo object of the calling Handler
-        :param send_msg: SendMsg object of the calling Handler, None means "create one"
-        :param task_id: Task ID assigned to the horizontal call
-        :return: PersonaInfo object, SendMsg object that the sub-call will run with
-        """
-        persona_info_copy = PersonaInfo.from_horizontal(persona_info, task_id = task_id)
-        if send_msg is None:
-            send_msg = SendMsg(
-                component = self.component,
-                persona_info = persona_info_copy,
-                reply = persona_info_copy.reply
+            send_core = SendCore(
+                persona_info = persona_info,
+                matcher = None,
+                send_target = SendType.BUFFER if not output else SendType.AUTO
             )
-        return persona_info_copy, send_msg
+        )
+        return persona_info, send_msg
 
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
         """
@@ -362,7 +370,7 @@ class CommandPackage(ABC, Generic[T]):
         behavioral_act = storage_configs.get_behavioral_act(persona_info.user_id)
         
         if behavioral_act.block_output:
-            send_msg.sending_target = SendingTarget.NULL
+            send_msg.send_type = SendType.NULL
         
         if not behavioral_act.check_cmd_types_allowed(self.cmd_type):
             return False
@@ -543,14 +551,14 @@ class CommandPackage(ABC, Generic[T]):
         Called when asyncio.CancelledError reaches the dispatch of CommandCaller._enter_handler,
         i.e. the run task was cancelled or the Handler raised it.
         The default implementation logs "<component> cancelled" at WARNING level and returns the
-        SubCmdCancelled class, which becomes SubCmdCancelled(0); handler_exit still runs.
+        SubCmdCancelled(4), which becomes SubCmdCancelled(0); handler_exit still runs.
 
         :param persona_info: PersonaInfo object
         :param send_msg: SendMsg object
         :return: the SubCmdCancelled class, used as the result of the run
         """
         logger.warning(f"{self.component} cancelled")
-        return SubCmdCancelled
+        return SubCmdCancelled(4)
 
     async def on_timeout(self, persona_info: PersonaInfo, send_msg: SendMsg) -> T | Any | None | NoReturn:
         """

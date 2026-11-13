@@ -31,14 +31,11 @@ class MessageWithdrawn(CommandPackage):
     """
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):
-
-        reply  = await persona_info.from_reply()
-        if reply is None:
+        async for msg in persona_info.from_reply_chain():
+            reply = msg
+            break
+        else:
             await send_msg.send_error("No message to withdraw.")
-            return
-        
-        if not reply.is_self:
-            await send_msg.send_error("You can only withdraw your own messages.")
             return
         
         # Call API

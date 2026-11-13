@@ -1,13 +1,15 @@
 import time
-from ...assist import Namespace, MessageSource
+from ..namespace import Namespace
+from ..scene import MessageSource
 from nonebot.adapters.onebot.v11 import MessageEvent, Message, Bot
-from nonebot.adapters.onebot.v11.event import Reply, Sender
+from nonebot.adapters.onebot.v11.event import Sender
 
-def make_message_event(
+def make_new_message_event(
     namespace: Namespace,
     self_id: int = 0,
     message_id: int = 0,
     message: Message = Message(),
+    reply: MessageEvent | None = None,
     font: int = 0,
     nickname: str | None = None,
     sex: str | None = None,
@@ -44,7 +46,7 @@ def make_message_event(
             title = title
         ),
         to_me = to_me,
-        reply = None,
+        reply = reply,
         group_id = int(namespace.group_id) if namespace.mode == MessageSource.GROUP else None # type: ignore
     )
     return empty_message_event

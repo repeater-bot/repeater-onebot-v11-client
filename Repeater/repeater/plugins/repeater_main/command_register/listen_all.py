@@ -3,7 +3,7 @@ from .objects.package import CommandPackage
 from .objects.listen_type import ListenType
 from .caller import CommandCaller
 from ..cmd_info import CmdTypes
-from ..assist import PersonaInfo, SendMsg, SendingTarget
+from ..assist import PersonaInfo, SendMsg, SendType
 
 @CommandCaller.register
 class FrameworkMessageListener(CommandPackage):
@@ -17,7 +17,7 @@ class FrameworkMessageListener(CommandPackage):
     """
 
     async def enter_check(self, persona_info: PersonaInfo, send_msg: SendMsg) -> bool:
-        send_msg.sending_target = SendingTarget.NULL
+        send_msg.send_type = SendType.NULL
         return True
 
     async def handler(self, persona_info: PersonaInfo, send_msg: SendMsg):

@@ -23,6 +23,7 @@ from .assist_func import (
     format_time_duration,
     format_size_duration,
     make_message_event,
+    make_new_message_event,
     get_private_message_history,
     get_group_message_history,
     is_empty_message,
@@ -51,11 +52,13 @@ from .text_render import (
     RendedImage
 )
 from .send_msg import (
-    SpeedLimiter,
+    BaseSendCore,
+    SendCore,
     SendMsg,
     SEND_HOOK,
     RENDER_HOOK,
-    SendingTarget
+    SpeedLimiter,
+    SendType
 )
 from .chattts import (
     ChatTTSAPI,
@@ -138,7 +141,9 @@ __all__ = [
     "make_empty_message_event",
     "format_time_duration_ns",
     "format_time_duration",
+    "format_size_duration",
     "make_message_event",
+    "make_new_message_event",
     "get_private_message_history",
     "get_group_message_history",
     "is_empty_message",
@@ -161,11 +166,13 @@ __all__ = [
     "TextRender",
     "RendedImage",
 
-    "SpeedLimiter",
+    "BaseSendCore",
+    "SendCore",
     "SendMsg",
     "SEND_HOOK",
     "RENDER_HOOK",
-    "SendingTarget",
+    "SpeedLimiter",
+    "SendType",
     
     "ChatTTSAPI",
     "TTSResponse",

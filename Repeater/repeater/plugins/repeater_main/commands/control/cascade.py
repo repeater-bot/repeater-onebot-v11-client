@@ -3,7 +3,7 @@ from nonebot.adapters.onebot.v11 import Message
 from ...assist import (
     PersonaInfo,
     SendMsg,
-    SendingTarget,
+    SendType,
     Variables
 )
 from ...cmd_info import CmdTypes
@@ -58,8 +58,8 @@ class Cascade(CommandPackage):
         for index, (package, args) in enumerate(command_call):
             try:
                 package_instance = CommandCaller.get_instance(package)
-                copyed_persona_info = persona_info.copy(args = args)
-                tasks.append((package_instance, copyed_persona_info))
+                copied_persona_info = persona_info.copy(args = args)
+                tasks.append((package_instance, copied_persona_info))
             except KeyError:
                 await send_msg.send_error(f"[{index}] Handler instance not found")
                 send_msg.break_handler()
@@ -69,7 +69,7 @@ class Cascade(CommandPackage):
         async with CommandCaller.variable_lock:
             user_variables = CommandCaller.variables.setdefault(persona_info.namespace, Variables())
         for index, (package_instance, info) in enumerate(tasks):
-            copyed_send_msg = send_msg.copy(
+            copied_send_msg = send_msg.copy(
                 component = package_instance.component
             )
 
@@ -96,15 +96,15 @@ class Cascade(CommandPackage):
             elif not info and last_result:
                 info = last_result
             elif index != 0:
-                await copyed_send_msg.send_any(last_result.message)
+                await copied_send_msg.send_any(last_result.message)
                 continue
             
-            copyed_send_msg.sending_target = SendingTarget.BUFFER
+            copied_send_msg.send_type = SendType.BUFFER
             
             result = await CommandCaller.horizontal_call(
                 package_instance,
                 fill_var(info, user_variables),
-                copyed_send_msg
+                copied_send_msg
             )
 
             if isinstance(result, SubCmdBreaked):
@@ -113,8 +113,8 @@ class Cascade(CommandPackage):
                 last_code = None
             
             current_result = Message()
-            while copyed_send_msg.buffer.qsize() > 0:
-                buffer_result = await copyed_send_msg.buffer.get()
+            while copied_send_msg.buffer.qsize() > 0:
+                buffer_result = await copied_send_msg.buffer.get()
                 new_message = buffer_result.message
                 if isinstance(new_message, Message):
                     current_result.extend(new_message)

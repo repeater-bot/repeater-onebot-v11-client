@@ -89,6 +89,13 @@ WORKSPACE_TRUNCATE_ROUTE = "/workspace/truncate"
 WORKSPACE_TOUCH_ROUTE = "/workspace/touch"
 WORKSPACE_EDIT_ROUTE = "/workspace/edit"
 
+# ==== SQLITE API ==== #
+SQLITE_CREATE_ROUTE = "/data_server/sqlite/create"
+SQLITE_OPEN_ROUTE = "/data_server/sqlite/open"
+SQLITE_LIST_ROUTE = "/data_server/sqlite/list"
+SQLITE_EXECUTE_ROUTE = "/data_server/sqlite/{sqlite_id}/execute"
+SQLITE_CLOSE_ROUTE = "/data_server/sqlite/{sqlite_id}"
+
 # ==== CONFIG ==== #
 REPEATER_DEBUG_MODE: bool = net_config.repeater_debug_mode # 是否开启调试模式，调试模式下，将直接返回消息内容，而不进行后端访问操作
 
